@@ -13,7 +13,10 @@ local_storage = LocalStorage()
 
 # 2. 사이드바 - 글로벌 옵션 설정
 st.sidebar.header("🛠️ 대시보드 설정")
-display_option = st.sidebar.radio("데이터 보기 방식 선택:", ("수량 기준 (만 주)", "금액 기준 (억 원)"))
+display_option = st.sidebar.radio(
+    "데이터 보기 방식 선택:",
+    ("수량 기준 (만 주)", "금액 기준 (억 원)")
+)
 
 # 3. 상장 종목 리스트 불러오기 함수
 @st.cache_data
@@ -46,11 +49,11 @@ def get_clean_foreigner_data(ticker, start, end):
     try: return fdr.DataReader(ticker, start, end)
     except: return pd.DataFrame()
 
-# 💡 [영점 고정 엔진] Y축 강제 고정 로직 적용
+# 💡 [실제 데이터 엔진] Foreigner 컬럼 직접 매핑
 def draw_pure_zero_start_chart(df, label_name, unit_label):
     df = df.sort_values(by='Date').reset_index(drop=True)
     
-    # 💡 실제 외국인 수급 데이터 사용 (Foreigner)
+    # 💡 추정치 계산 제거! 실제 'Foreigner' 데이터를 사용
     df['일별지표'] = df['Foreigner']
     df['누적지표'] = df['일별지표'].cumsum()
     first_day_cum = df['누적지표'].iloc[0] if not df['누적지표'].empty else 0
@@ -60,14 +63,7 @@ def draw_pure_zero_start_chart(df, label_name, unit_label):
     colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
     
     fig.add_trace(go.Bar(x=df['Date'], y=df['일별지표'], marker_color=colors, name="당일 외국인 순매매", opacity=0.55), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['정렬영점누적'], mode='lines', name="외국인 누적 수급선", line=dict(color='#2CA02C', width=2)), secondary_y=True)
-    
-    # [핵심] Y축 범위를 대칭으로 강제 고정하여 0선이 흔들리지 않게 함
-    max_bar = max(abs(df['일별지표'].max()), abs(df['일별지표'].min())) * 1.15
-    max_line = max(abs(df['정렬영점누적'].max()), abs(df['정렬영점누적'].min())) * 1.15
-    
-    fig.update_yaxes(range=[-max_bar, max_bar], secondary_y=False, showgrid=False, title_text=f"당일 수급 ({unit_label})", zeroline=True, zerolinewidth=1)
-    fig.update_yaxes(range=[-max_line, max_line], secondary_y=True, showgrid=True, title_text=f"누적 수급 흐름 ({unit_label})", zeroline=True, zerolinewidth=2, zerolinecolor='black')
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['정렬영점누적'], mode='lines', name="외국인 누적 수급선", line=dict(color='#2CA02C', width=1.6)), secondary_y=True)
     
     fig.update_layout(template="plotly_white", height=450, hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     return fig
@@ -85,11 +81,13 @@ with tab1:
     if len(date_range) == 2:
         df = get_clean_foreigner_data(ticker, date_range[0].strftime("%Y-%m-%d"), date_range[1].strftime("%Y-%m-%d"))
         if not df.empty:
-            unit = "억 원" if display_option == "금액 기준 (억 원)" else "만 주"
-            # 실제 데이터 기반 단위 변환
-            if display_option == "금액 기준 (억 원)": df['Foreigner'] = (df['Foreigner'] * df['Close']) / 100000000
-            else: df['Foreigner'] = df['Foreigner'] / 10000
-            
+            # 💡 단위 변환: 실제 데이터 기반
+            if display_option == "금액 기준 (억 원)":
+                df['일별지표'] = (df['Foreigner'] * df['Close']) / 100000000
+                unit = "억 원"
+            else:
+                df['일별지표'] = df['Foreigner'] / 10000
+                unit = "만 주"
             fig = draw_pure_zero_start_chart(df, selected_stock, unit)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -101,7 +99,7 @@ with tab2:
         ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
         df = get_clean_foreigner_data(ticker, "2026-01-01", datetime.date.today().strftime("%Y-%m-%d"))
         if not df.empty:
-            df['Foreigner'] = df['Foreigner'] / 10000
+            df['일별지표'] = df['Foreigner'] / 10000
             fig = draw_pure_zero_start_chart(df, stock_name, "만 주")
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("---")
