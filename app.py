@@ -49,20 +49,29 @@ tab1, tab2 = st.tabs(["🔎 개별 종목 분석", "🌱 나의 새싹 즐겨찾
 @st.cache_data(ttl=3600)
 def get_clean_foreigner_data(ticker, start, end):
     try:
-        # 실제 데이터 파일 읽기
-        df = pd.read_csv("data/investor_data.csv")
+        # 1. 파일 읽기 (Ticker를 문자열로 명시하여 005930 등이 5930으로 변하는 것 방지)
+        df = pd.read_csv("data/investor_data.csv", dtype={'Ticker': str}) 
+        
+        # 2. 날짜 컬럼 변환
         df['Date'] = pd.to_datetime(df['Date'])
         
-        # 필터링
-        mask = (df['Ticker'].astype(str).str.zfill(6) == ticker.zfill(6)) & \
+        # 3. Ticker 형식 통일 (혹시 모를 공백이나 형식을 zfill로 맞춤)
+        df['Ticker'] = df['Ticker'].astype(str).str.zfill(6)
+        
+        # 4. 필터링
+        mask = (df['Ticker'] == ticker.zfill(6)) & \
                (df['Date'] >= pd.to_datetime(start)) & \
                (df['Date'] <= pd.to_datetime(end))
         df_filtered = df.loc[mask].copy()
         
-        # 'NetBuying'을 기존 그래프가 요구하는 '일별지표'로 이름만 바꿔줌
+        # 5. 시각화 함수가 읽기 좋게 이름 변경
         df_filtered = df_filtered.rename(columns={'NetBuying': '일별지표'})
-        return df_filtered
-    except:
+        
+        # 6. 날짜순 정렬 (차트가 꼬이지 않게)
+        return df_filtered.sort_values('Date')
+        
+    except Exception as e:
+        # 에러가 나면 화면에 붉은색으로 띄우지 않고, 빈 데이터프레임 반환
         return pd.DataFrame()
 
 # [차트 엔진: 그대로 유지]
