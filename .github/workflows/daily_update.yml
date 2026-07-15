@@ -1,24 +1,32 @@
-name: Daily Data Update
+name: Daily Stock Scraper
+
 on:
   schedule:
-    - cron: '0 0 * * *' # 매일 자정 실행
-  workflow_dispatch: # 수동 실행 버튼 추가
+    - cron: '30 08 * * *' # 매일 UTC 08:30 (한국시간 17:30) 자동 실행
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
-        with: {python-version: '3.9'}
-      - run: |
-          pip install pandas FinanceDataReader
-          python update_data.py
-      - name: Commit and Push
+        with:
+          python-version: '3.9'
+
+      - name: Install requirements
+        run: pip install pandas requests
+
+      - name: Run scraper
+        run: python update_data.py
+
+      - name: Commit and push
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add data/stock_list.csv
-          git commit -m "Update stock data"
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add data/investor_data.csv
+          git commit -m "Update investor data"
           git push
