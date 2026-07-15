@@ -143,7 +143,7 @@ with tab1:
                 df_daily['일별지표'] = (df_daily['Volume'] * df_daily['Change']) / 10000
                 hover_unit = "만 주"
             fig = draw_pure_zero_start_chart(df_daily, selected_name, hover_unit)
-            fig.update_layout(title=f"📊 {selected_name} ({selected_ticker}) 외국인 당일/누적 수급 흐름")
+            fig.update_layout(title=f"📊 {selected_name} ({selected_ticker})")
             st.plotly_chart(fig, use_container_width=True)
             col_stat1, col_stat2 = st.columns(2)
             with col_stat1:
