@@ -1,5 +1,0 @@
-streamlit
-pandas
-FinanceDataReader
-plotly
-streamlit-local-storage
