@@ -13,18 +13,13 @@ local_storage = LocalStorage()
 
 # 2. 사이드바 - 글로벌 옵션 설정
 st.sidebar.header("🛠️ 대시보드 설정")
-display_option = st.sidebar.radio(
-    "데이터 보기 방식 선택:",
-    ("수량 기준 (만 주)", "금액 기준 (억 원)")
-)
+display_option = st.sidebar.radio("데이터 보기 방식 선택:", ("수량 기준 (만 주)", "금액 기준 (억 원)"))
 
-# 3. 상장 종목 리스트 불러오기 함수 (데이터 폴더 자동 생성 및 오류 방지 로직 포함)
+# 3. 상장 종목 리스트 불러오기 함수
 @st.cache_data
 def load_stock_list():
-    if not os.path.exists("data"):
-        os.makedirs("data")
-    if os.path.exists("data/stock_list.csv"):
-        return pd.read_csv("data/stock_list.csv")
+    if not os.path.exists("data"): os.makedirs("data")
+    if os.path.exists("data/stock_list.csv"): return pd.read_csv("data/stock_list.csv")
     else:
         try:
             df = fdr.StockListing('KRX')
@@ -32,166 +27,81 @@ def load_stock_list():
             df_filtered.columns = ['티커', '종목명', '시장']
             df_filtered.to_csv("data/stock_list.csv", index=False)
             return df_filtered
-        except:
-            return pd.DataFrame(columns=['티커', '종목명', '시장'])
+        except: return pd.DataFrame(columns=['티커', '종목명', '시장'])
 
 stock_df = load_stock_list()
 stock_df['티커'] = stock_df['티커'].astype(str).str.zfill(6)
 stock_df['선택용_이름'] = stock_df['종목명'] + " (" + stock_df['티커'] + ")"
 
-# 즐겨찾기 목록 로컬 스토리지 동기화
 saved_favs = local_storage.getItem("my_sprout_favorites")
 if saved_favs is None:
     default_favs = [stock_df['선택용_이름'].iloc[100], stock_df['선택용_이름'].iloc[120]] if len(stock_df) > 130 else []
 else:
     default_favs = [x.strip() for x in saved_favs.split(",") if x.strip() in stock_df['선택용_이름'].values]
 
-# 탭 구성
 tab1, tab2 = st.tabs(["🔎 개별 종목 분석", "🌱 나의 새싹 즐겨찾기"])
-
-# 공통 기준 정의
-END_DATE = datetime.datetime.now().strftime("%Y-%m-%d")
 
 @st.cache_data(ttl=3600)
 def get_clean_foreigner_data(ticker, start, end):
-    try:
-        df = fdr.DataReader(ticker, start, end)
-        return df
-    except:
-        return pd.DataFrame()
+    try: return fdr.DataReader(ticker, start, end)
+    except: return pd.DataFrame()
 
-# 💡 [순정 복구판 수급 시각화 엔진] 0점 강제 보정 로직 적용
+# 💡 [영점 고정 엔진] Y축 강제 고정 로직 적용
 def draw_pure_zero_start_chart(df, label_name, unit_label):
     df = df.sort_values(by='Date').reset_index(drop=True)
-
-    # 누적지표 계산 후 첫날 데이터 기준으로 0점 오프셋 연산
+    
+    # 💡 실제 외국인 수급 데이터 사용 (Foreigner)
+    df['일별지표'] = df['Foreigner']
     df['누적지표'] = df['일별지표'].cumsum()
     first_day_cum = df['누적지표'].iloc[0] if not df['누적지표'].empty else 0
     df['정렬영점누적'] = df['누적지표'] - first_day_cum
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-    # 1. 당일 순매수/순매도 막대그래프
     colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
-    fig.add_trace(
-        go.Bar(
-            x=df['Date'], y=df['일별지표'], marker_color=colors,
-            name="당일 외국인 순매매", showlegend=True, opacity=0.55,
-            hovertemplate=f"<b>당일 순매매:</b> %{{y:,.2f}} {unit_label}<extra></extra>"
-        ), secondary_y=False
-    )
-
-    # 2. 외국인 장기 누적 수급선 (정렬영점누적 사용)
-    fig.add_trace(
-        go.Scatter(
-            x=df['Date'], y=df['정렬영점누적'], mode='lines',
-            name="외국인 누적 수급선", showlegend=True,
-            line=dict(color='#2CA02C', width=1.6),
-            hovertemplate=f"<b>외인 누적:</b> %{{y:,.2f}} {unit_label}<extra></extra>"
-        ), secondary_y=True
-    )
-
-    # 0선 기준 대칭 스케일링
-    max_bar = max(abs(df['일별지표'].max()), abs(df['일별지표'].min())) * 1.1 if not df['일별지표'].empty else 1.0
-    max_line = max(abs(df['정렬영점누적'].max()), abs(df['정렬영점누적'].min())) * 1.1 if not df['정렬영점누적'].empty else 1.0
-    if max_bar < 0.001: max_bar = 1.0
-    if max_line < 0.001: max_line = 1.0
-
-    fig.update_yaxes(range=[-max_bar, max_bar], secondary_y=False, showgrid=False, title_text=f"당일 수급 ({unit_label})")
-    fig.update_yaxes(range=[-max_line, max_line], secondary_y=True, showgrid=True, title_text=f"누적 수급 흐름 ({unit_label})")
-
-    fig.update_layout(
-        template="plotly_white", height=450, hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis=dict(tickformat="%Y-%m-%d", range=[df['Date'].min(), df['Date'].max()]),
-        shapes=[dict(type="line", yref="y", y0=0, y1=0, xref="paper", x0=0, x1=1, line=dict(color="rgba(0,0,0,0.3)", width=1.5, dash="solid"))]
-    )
+    
+    fig.add_trace(go.Bar(x=df['Date'], y=df['일별지표'], marker_color=colors, name="당일 외국인 순매매", opacity=0.55), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['정렬영점누적'], mode='lines', name="외국인 누적 수급선", line=dict(color='#2CA02C', width=2)), secondary_y=True)
+    
+    # [핵심] Y축 범위를 대칭으로 강제 고정하여 0선이 흔들리지 않게 함
+    max_bar = max(abs(df['일별지표'].max()), abs(df['일별지표'].min())) * 1.15
+    max_line = max(abs(df['정렬영점누적'].max()), abs(df['정렬영점누적'].min())) * 1.15
+    
+    fig.update_yaxes(range=[-max_bar, max_bar], secondary_y=False, showgrid=False, title_text=f"당일 수급 ({unit_label})", zeroline=True, zerolinewidth=1)
+    fig.update_yaxes(range=[-max_line, max_line], secondary_y=True, showgrid=True, title_text=f"누적 수급 흐름 ({unit_label})", zeroline=True, zerolinewidth=2, zerolinecolor='black')
+    
+    fig.update_layout(template="plotly_white", height=450, hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     return fig
 
-# ==========================================
-# 🔍 탭 1: 개별 종목 분석
-# ==========================================
+# 🔍 탭 1
 with tab1:
     st.header("🔍 종목별 상세 외국인 수급 추세 분석")
-    st.markdown("당일 순매매량과 외국인 순매매량 누적 추세선 비교")
-
-    col_input1, col_input2 = st.columns([2, 2])
-    with col_input1:
-        selected_stock = st.selectbox("📊 분석할 종목을 입력하거나 고르세요:", stock_df['선택용_이름'], key="individual_select")
-        selected_ticker = stock_df[stock_df['선택용_이름'] == selected_stock]['티커'].values[0]
-        selected_name = stock_df[stock_df['선택용_이름'] == selected_stock]['종목명'].values[0]
-
-    with col_input2:
-        default_start_1 = datetime.date(2026, 1, 1)
-        default_end_1 = datetime.date.today()
-        date_range_1 = st.date_input(
-            "📅 분석 기간을 선택하세요:", value=(default_start_1, default_end_1), min_value=datetime.date(2020, 1, 1),
-            max_value=default_end_1, key="ind_date"
-        )
-
-    if isinstance(date_range_1, tuple) and len(date_range_1) == 2:
-        start_date_str = date_range_1[0].strftime("%Y-%m-%d")
-        end_date_str = date_range_1[1].strftime("%Y-%m-%d")
-        with st.spinner(f"{selected_name}의 외국인 수급 데이터를 동기화 중..."):
-            df_daily = get_clean_foreigner_data(selected_ticker, start_date_str, end_date_str)
-        if not df_daily.empty:
-            df_daily = df_daily.reset_index()
-            if display_option == "금액 기준 (억 원)":
-                df_daily['일별지표'] = (df_daily['Close'] * df_daily['Volume'] * df_daily['Change']) / 100000000
-                hover_unit = "억 원"
-            else:
-                df_daily['일별지표'] = (df_daily['Volume'] * df_daily['Change']) / 10000
-                hover_unit = "만 주"
-            fig = draw_pure_zero_start_chart(df_daily, selected_name, hover_unit)
-            fig.update_layout(title=f"📊 {selected_name} ({selected_ticker})")
+    col1, col2 = st.columns([2, 2])
+    with col1:
+        selected_stock = st.selectbox("📊 분석할 종목:", stock_df['선택용_이름'], key="ind_select")
+        ticker = stock_df[stock_df['선택용_이름'] == selected_stock]['티커'].values[0]
+    with col2:
+        date_range = st.date_input("📅 기간:", value=(datetime.date(2026, 1, 1), datetime.date.today()))
+    
+    if len(date_range) == 2:
+        df = get_clean_foreigner_data(ticker, date_range[0].strftime("%Y-%m-%d"), date_range[1].strftime("%Y-%m-%d"))
+        if not df.empty:
+            unit = "억 원" if display_option == "금액 기준 (억 원)" else "만 주"
+            # 실제 데이터 기반 단위 변환
+            if display_option == "금액 기준 (억 원)": df['Foreigner'] = (df['Foreigner'] * df['Close']) / 100000000
+            else: df['Foreigner'] = df['Foreigner'] / 10000
+            
+            fig = draw_pure_zero_start_chart(df, selected_stock, unit)
             st.plotly_chart(fig, use_container_width=True)
-            col_stat1, col_stat2 = st.columns(2)
-            with col_stat1:
-                df_sorted = df_daily.sort_values(by='Date').reset_index(drop=True)
-                df_sorted['누적지표'] = df_sorted['일별지표'].cumsum()
-                final_zero_val = df_sorted['누적지표'].iloc[-1] - df_sorted['누적지표'].iloc[0] if not df_sorted['누적지표'].empty else 0
-                st.metric("기간 내 외인 누적 증감량", f"{final_zero_val:+.2f} {hover_unit}")
-            with col_stat2:
-                st.metric("현재 종가 (최근 거래일)", f"{int(df_daily['Close'].iloc[-1]):,} 원", delta=f"{df_daily['Change'].iloc[-1] * 100:.2f}%")
-        else:
-            st.error("데이터를 가져올 수 없습니다.")
 
-# ==========================================
-# ⭐ 탭 2: 나의 새싹 즐겨찾기 추세 레이더
-# ==========================================
+# ⭐ 탭 2
 with tab2:
-    st.header("🌱 나의 관심 새싹 외국인 누적 추세 레이더")
-    st.markdown("등록한 새싹들의 당일 수급량과 장기 누적 물줄기를 동시에 관측합니다.")
-    col_fav1, col_fav2 = st.columns([2, 2])
-    with col_fav1:
-        favorite_stocks = st.multiselect("📌 즐겨찾기하여 추적할 새싹 종목들을 등록하세요:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
-    with col_fav2:
-        date_range_2 = st.date_input("📅 즐겨찾기 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="fav_date_pick")
-    if favorite_stocks:
-        local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
-    else:
-        local_storage.setItem("my_sprout_favorites", "")
-    if favorite_stocks and isinstance(date_range_2, tuple) and len(date_range_2) == 2:
-        hover_unit = "만 주" if display_option == "수량 기준 (만 주)" else "억 원"
-        fav_summary_list = []
-        with st.spinner("관심 종목들의 복합 수급 지도를 갱신하는 중..."):
-            for stock_name in favorite_stocks:
-                ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
-                name = stock_df[stock_df['선택용_이름'] == stock_name]['종목명'].values[0]
-                df_fav = get_clean_foreigner_data(ticker, date_range_2[0].strftime("%Y-%m-%d"), date_range_2[1].strftime("%Y-%m-%d"))
-                if not df_fav.empty:
-                    df_fav = df_fav.reset_index()
-                    df_fav['일별지표'] = (df_fav['Close'] * df_fav['Volume'] * df_fav['Change']) / 100000000 if display_option == "금액 기준 (억 원)" else (df_fav['Volume'] * df_fav['Change']) / 10000
-                    fig_individual = draw_pure_zero_start_chart(df_fav, name, hover_unit)
-                    fig_individual.update_layout(title=f"📈 {name} ({ticker})", height=400)
-                    st.plotly_chart(fig_individual, use_container_width=True)
-                    st.markdown("---")
-                    df_fav_sorted = df_fav.sort_values(by='Date').reset_index(drop=True)
-                    df_fav_sorted['누적지표'] = df_fav_sorted['일별지표'].cumsum()
-                    final_zero_fav = df_fav_sorted['누적지표'].iloc[-1] - df_fav_sorted['누적지표'].iloc[0] if not df_fav_sorted['누적지표'].empty else 0
-                    fav_summary_list.append({"종목명": name, "티커": ticker, "현재가": f"{int(df_fav['Close'].iloc[-1]):,}원", f"외인 누적 증감 ({hover_unit})": round(final_zero_fav, 2)})
-        if fav_summary_list:
-            st.subheader("📋 즐겨찾기 새싹 수급 요약 현황판")
-            st.dataframe(pd.DataFrame(fav_summary_list).sort_values(by=f"외인 누적 증감 ({hover_unit})", ascending=False).reset_index(drop=True), use_container_width=True)
-    elif not favorite_stocks:
-        st.info("📌 종목을 등록하시면 브라우저에 자동 저장되어 다음 접속 시에도 그대로 로드됩니다!")
+    favorite_stocks = st.multiselect("📌 즐겨찾기:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
+    local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
+    for stock_name in favorite_stocks:
+        ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
+        df = get_clean_foreigner_data(ticker, "2026-01-01", datetime.date.today().strftime("%Y-%m-%d"))
+        if not df.empty:
+            df['Foreigner'] = df['Foreigner'] / 10000
+            fig = draw_pure_zero_start_chart(df, stock_name, "만 주")
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("---")
