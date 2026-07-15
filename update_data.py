@@ -4,7 +4,7 @@ import os
 
 if not os.path.exists('data'): os.makedirs('data')
 
-# 종목 리스트만 업데이트
+# 종목 리스트 업데이트
 df = fdr.StockListing('KRX')
 df_filtered = df[df['Market'].isin(['KOSPI', 'KOSDAQ'])][['Code', 'Name', 'Market']]
 df_filtered.columns = ['티커', '종목명', '시장']
