@@ -18,24 +18,18 @@ display_option = st.sidebar.radio(
     ("수량 기준 (만 주)", "금액 기준 (억 원)")
 )
 
-# 3. 상장 종목 리스트 불러오기 (로컬 파일 우선 방식 - 에러 방지)
+# 3. 상장 종목 리스트 불러오기
 @st.cache_data
 def load_stock_list():
-    # 먼저 로컬에 있는지 확인
     if os.path.exists("data/stock_list.csv"):
         return pd.read_csv("data/stock_list.csv")
     else:
-        # 없으면 한 번 가져와서 저장
-        try:
-            df = fdr.StockListing('KRX')
-            df_filtered = df[df['Market'].isin(['KOSPI', 'KOSDAQ'])][['Code', 'Name', 'Market']]
-            df_filtered.columns = ['티커', '종목명', '시장']
-            if not os.path.exists("data"): os.makedirs("data")
-            df_filtered.to_csv("data/stock_list.csv", index=False)
-            return df_filtered
-        except:
-            st.error("종목 리스트를 가져오는데 실패했습니다. data/stock_list.csv 파일이 필요합니다.")
-            return pd.DataFrame(columns=['티커', '종목명', '시장'])
+        df = fdr.StockListing('KRX')
+        df_filtered = df[df['Market'].isin(['KOSPI', 'KOSDAQ'])][['Code', 'Name', 'Market']]
+        df_filtered.columns = ['티커', '종목명', '시장']
+        if not os.path.exists("data"): os.makedirs("data")
+        df_filtered.to_csv("data/stock_list.csv", index=False)
+        return df_filtered
 
 stock_df = load_stock_list()
 stock_df['티커'] = stock_df['티커'].astype(str).str.zfill(6)
@@ -51,34 +45,31 @@ else:
 # 탭 구성
 tab1, tab2 = st.tabs(["🔎 개별 종목 분석", "🌱 나의 새싹 즐겨찾기"])
 
-# 4. 데이터 로드 엔진 (이제 로컬 파일에서 읽음)
+# [데이터 엔진: 계산식 제거 -> CSV 읽기]
 @st.cache_data(ttl=3600)
 def get_clean_foreigner_data(ticker, start, end):
     try:
-        # GitHub Actions가 쌓아둔 실제 데이터 파일 읽기
-        df_all = pd.read_csv("data/investor_data.csv")
-        df_all['Date'] = pd.to_datetime(df_all['Date'])
+        # 실제 데이터 파일 읽기
+        df = pd.read_csv("data/investor_data.csv")
+        df['Date'] = pd.to_datetime(df['Date'])
         
-        # 해당 티커와 기간 필터링
-        mask = (df_all['Ticker'].astype(str).str.zfill(6) == ticker.zfill(6)) & \
-               (df_all['Date'] >= pd.to_datetime(start)) & \
-               (df_all['Date'] <= pd.to_datetime(end))
-        df = df_all.loc[mask].copy()
+        # 필터링
+        mask = (df['Ticker'].astype(str).str.zfill(6) == ticker.zfill(6)) & \
+               (df['Date'] >= pd.to_datetime(start)) & \
+               (df['Date'] <= pd.to_datetime(end))
+        df_filtered = df.loc[mask].copy()
         
-        # 'NetBuying' 컬럼을 차트용 '일별지표'로 이름 변경
-        df = df.rename(columns={'NetBuying': '일별지표'})
-        return df
-    except Exception as e:
-        st.write(f"데이터 로드 오류: {e}")
+        # 'NetBuying'을 기존 그래프가 요구하는 '일별지표'로 이름만 바꿔줌
+        df_filtered = df_filtered.rename(columns={'NetBuying': '일별지표'})
+        return df_filtered
+    except:
         return pd.DataFrame()
 
-# 5. 차트 엔진
+# [차트 엔진: 그대로 유지]
 def draw_pure_zero_start_chart(df, label_name, unit_label):
-    if df.empty: return go.Figure()
-    
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
-    first_day_cum = df['누적지표'].iloc[0]
+    first_day_cum = df['누적지표'].iloc[0] if not df['누적지표'].empty else 0
     df['정렬영점누적'] = df['누적지표'] - first_day_cum
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -97,36 +88,39 @@ with tab1:
     st.header("🔍 종목별 상세 외국인 수급 추세 분석")
     col_input1, col_input2 = st.columns([2, 2])
     with col_input1:
-        selected_stock = st.selectbox("📊 분석할 종목을 선택하세요:", stock_df['선택용_이름'], key="individual_select")
+        selected_stock = st.selectbox("📊 분석할 종목을 입력하거나 고르세요:", stock_df['선택용_이름'], key="individual_select")
         selected_ticker = stock_df[stock_df['선택용_이름'] == selected_stock]['티커'].values[0]
-    
+        selected_name = stock_df[stock_df['선택용_이름'] == selected_stock]['종목명'].values[0]
+
     with col_input2:
-        date_range_1 = st.date_input("📅 분석 기간:", value=(datetime.date(2026, 1, 1), datetime.date.today()))
+        date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()))
 
     if isinstance(date_range_1, tuple) and len(date_range_1) == 2:
         df_daily = get_clean_foreigner_data(selected_ticker, date_range_1[0], date_range_1[1])
-        
         if not df_daily.empty:
-            hover_unit = "억 원" if display_option == "금액 기준 (억 원)" else "만 주"
-            fig = draw_pure_zero_start_chart(df_daily, selected_stock, hover_unit)
+            hover_unit = "단위(수량)" # CSV 데이터의 단위에 맞춤
+            fig = draw_pure_zero_start_chart(df_daily, selected_name, hover_unit)
+            fig.update_layout(title=f"📊 {selected_name} 외국인 당일/누적 수급 흐름")
             st.plotly_chart(fig, use_container_width=True)
+            st.metric("기간 내 외인 누적 증감량", f"{df_daily['일별지표'].sum():,.0f}")
         else:
-            st.error("데이터가 없습니다. CSV 파일 경로와 데이터를 확인하세요.")
+            st.error("데이터가 없습니다. update_data.py를 실행하세요.")
 
 # ==========================================
-# ⭐ 탭 2: 나의 새싹 즐겨찾기
+# ⭐ 탭 2: 나의 새싹 즐겨찾기 추세 레이더
 # ==========================================
 with tab2:
-    st.header("🌱 나의 관심 새싹 외국인 누적 추세")
-    favorite_stocks = st.multiselect("📌 즐겨찾기 종목:", options=stock_df['선택용_이름'], default=default_favs)
+    st.header("🌱 나의 관심 새싹 외국인 누적 추세 레이더")
+    favorite_stocks = st.multiselect("📌 즐겨찾기 종목:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
     
     if favorite_stocks:
         local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
         for stock_name in favorite_stocks:
             ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
+            name = stock_df[stock_df['선택용_이름'] == stock_name]['종목명'].values[0]
             df_fav = get_clean_foreigner_data(ticker, datetime.date(2026, 1, 1), datetime.date.today())
             
             if not df_fav.empty:
-                fig = draw_pure_zero_start_chart(df_fav, stock_name, "수급량")
-                fig.update_layout(title=f"📈 {stock_name}")
+                fig = draw_pure_zero_start_chart(df_fav, name, "수량")
+                fig.update_layout(title=f"📈 {name} 외국인 당일/누적 수급 흐름", height=400)
                 st.plotly_chart(fig, use_container_width=True)
