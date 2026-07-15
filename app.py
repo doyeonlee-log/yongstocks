@@ -183,7 +183,7 @@ with tab2:
                     df_fav = df_fav.reset_index()
                     df_fav['일별지표'] = (df_fav['Close'] * df_fav['Volume'] * df_fav['Change']) / 100000000 if display_option == "금액 기준 (억 원)" else (df_fav['Volume'] * df_fav['Change']) / 10000
                     fig_individual = draw_pure_zero_start_chart(df_fav, name, hover_unit)
-                    fig_individual.update_layout(title=f"📈 {name} ({ticker}) 외국인 당일/누적 수급 흐름", height=400)
+                    fig_individual.update_layout(title=f"📈 {name} ({ticker})", height=400)
                     st.plotly_chart(fig_individual, use_container_width=True)
                     st.markdown("---")
                     df_fav_sorted = df_fav.sort_values(by='Date').reset_index(drop=True)
