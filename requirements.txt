@@ -1,5 +1,5 @@
 streamlit
 pandas
 plotly
-financedatareader==0.9.9
+FinanceDataReader
 streamlit-local-storage
