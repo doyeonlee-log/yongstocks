@@ -68,7 +68,7 @@ def get_clean_investor_data(ticker, start, end, subject_col):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 정상 데이터 출력 및 범례 아이콘 회색 고정]
+# [차트 엔진: 범례 전용 회색 트레이스 + 실제 컬러 바 조합]
 def draw_pure_zero_start_chart(df, label_name, subject_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
@@ -80,24 +80,34 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     df['MA_20'] = df['정렬영점누적'].rolling(window=20).mean()
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
+    bar_colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
-    # [수정] 실제 막대그래프를 그리되, legendgroup을 묶고 호환되는 방식으로 범례 색상 제어
+    # [핵심 해결] 
+    # 1. 범례에만 나타나는 회색 아이콘용 더미 바 (데이터는 빈 값 처리하되 날짜를 맞춰서 X축 꼬임 방지)
     fig.add_trace(go.Bar(
-        x=df['Date'], y=df['일별지표'], 
-        marker_color=colors, 
+        x=df['Date'], y=[0] * len(df), 
         name=f"{subject_name} 당일 순매수", 
-        opacity=0.4,
-        legendgroup="daily_bar"
+        marker_color='lightgray',
+        showlegend=True,
+        hoverinfo='skip'
     ), secondary_y=False)
 
-    # 2. 누적 수급선
+    # 2. 실제 차트에 색상별로 그려지는 막대 (범례에는 나타나지 않게 showlegend=False)
+    fig.add_trace(go.Bar(
+        x=df['Date'], y=df['일별지표'], 
+        marker_color=bar_colors, 
+        name="", 
+        showlegend=False, 
+        opacity=0.4
+    ), secondary_y=False)
+
+    # 3. 누적 수급선
     fig.add_trace(go.Scatter(
         x=df['Date'], y=df['정렬영점누적'], mode='lines', 
         name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2)
     ), secondary_y=True)
 
-    # 3. 이동평균선들
+    # 4. 이동평균선들
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_5'], mode='lines', name="5일 이평선", line=dict(color='orange', width=1.2, dash='solid')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.2, dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.2, dash='dot')), secondary_y=True)
