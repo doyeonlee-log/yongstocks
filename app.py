@@ -161,7 +161,7 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 모바일/PC에서 시계열 데이터 연속 슬라이딩(호버/터치 트래킹) 최적화]
+# [차트 엔진: 모바일 터치 시 손가락을 대고 좌우로 스크립팅하며 연속 탐색 가능하도록 최적화]
 def draw_custom_multi_chart(df, label_name, configs):
     df = df.sort_values(by='Date').reset_index(drop=True)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -218,17 +218,17 @@ def draw_custom_multi_chart(df, label_name, configs):
     fig.update_layout(
         template="plotly_white", 
         height=500, 
-        hovermode="x unified",         # X축 기준 통합 호버 (손가락으로 슬라이딩할 때 날짜별 데이터가 연속으로 바뀜)
-        hoverdistance=100,             # 터치/마우스 인식 반경 확대
-        spikedistance=100,             # 가이드라인(스파이크라인) 활성화
+        hovermode="x unified",       # X축 기준으로 통합 호버 활성화
+        hoverdistance=-1,            # 차트 전체 영역 어디를 터치/마우스오버하든 가장 가까운 날짜로 즉시 연동
+        spikedistance=-1,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=f"📈 {label_name} - 주체별 맞춤 수급 및 이평선 비교 분석",
         dragmode="zoom",
         uirevision="constant"
     )
     
-    # X축/Y축에 터치 슬라이딩 시 따라다니는 가이드라인(Spike line) 추가하여 연속 탐색 지원
-    fig.update_xaxes(showspikes=True, spikemode="toaxis", spikesnap="cursor", spikecolor="gray", spikethickness=1)
+    # 모바일 터치 앤 드래그 시 상세 정보선(Spike line)이 손가락을 따라 연속으로 이동하도록 설정
+    fig.update_xaxes(showspikes=True, spikemode="toaxis", spikesnap="cursor", spikecolor="gray", spikethickness=1, spikedash="dot")
     
     return fig
 
@@ -317,7 +317,6 @@ with tab1:
         
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            # 모바일 연속 터치 트래킹 최적화 config 적용
             st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
