@@ -261,7 +261,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"2026년 1월~6월 사이에 유입 이력이 전혀 없다가 최근 비로소 최초로 수급이 터진 진정한 새싹 기업들입니다.")
+    st.info(f"최초로 외국인이 매수 새싹 기업들입니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
@@ -272,7 +272,7 @@ with tab2:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
             st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout")
     else:
-        st.warning(f"현재 [{primary_subject}] 기준 1~6월 무소속 후 최근 최초 유입된 새싹 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준으로 최근 최초 유입된 새싹 종목이 없습니다.")
 
 # ==========================================
 # 🚀 탭 3: 희망 종목
