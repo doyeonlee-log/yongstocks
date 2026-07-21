@@ -5,11 +5,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 import os
-from streamlit_local_storage import LocalStorage
 
-# 1. 페이지 기본 설정 및 로컬 스토리지 초기화
+# 1. 페이지 기본 설정
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
-local_storage = LocalStorage()
 
 # 2. 사이드바 - 글로벌 옵션 설정
 st.sidebar.header("🛠️ 대시보드 설정")
@@ -41,17 +39,9 @@ stock_df = load_stock_list()
 stock_df['티커'] = stock_df['티커'].astype(str).str.zfill(6)
 stock_df['선택용_이름'] = stock_df['종목명'] + " (" + stock_df['티커'] + ")"
 
-# 즐겨찾기 목록 로컬 스토리지 동기화
-saved_favs = local_storage.getItem("my_sprout_favorites")
-if saved_favs is None:
-    default_favs = [stock_df['선택용_이름'].iloc[100], stock_df['선택용_이름'].iloc[120]] if len(stock_df) > 130 else []
-else:
-    default_favs = [x.strip() for x in saved_favs.split(",") if x.strip() in stock_df['선택용_이름'].values]
-
-# 탭 5개 구성
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# 즐겨찾기 탭 삭제 후 4개 탭으로 구성
+tab1, tab2, tab3, tab4 = st.tabs([
     "🔎 개별 종목 분석", 
-    "🌱 나의 새싹 즐겨찾기", 
     "🌱 새싹 발굴", 
     "🚀 희망 종목", 
     "⚠️ 정리 종목"
@@ -79,7 +69,7 @@ def get_clean_investor_data(ticker, start, end, subject_col):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 누적선 및 5일, 10일, 20일 이동평균선 추가]
+# [차트 엔진: 범례 아이콘 회색 네모 적용]
 def draw_pure_zero_start_chart(df, label_name, subject_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
@@ -93,14 +83,31 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
-    fig.add_trace(go.Bar(x=df['Date'], y=df['일별지표'], marker_color=colors, name=f"{subject_name} 당일 순매수", opacity=0.4), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['정렬영점누적'], mode='lines', name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2)), secondary_y=True)
+    # 1. 당일 순매수 막대그래프 (legendgroup을 주어 범례 아이콘을 단색 회색 네모로 고정)
+    fig.add_trace(go.Bar(
+        x=df['Date'], y=df['일별지표'], marker_color=colors, 
+        name=f"{subject_name} 당일 순매수", opacity=0.4,
+        legendgroup="bar", marker=dict(pattern=dict(shape=""))
+    ), secondary_y=False)
+    
+    # 범례 아이콘 색상을 강제로 회색으로 보이게 하는 더미 트레이스 또는 스타일 조정
+    # Plotly에서 막대 범례 아이콘은 데이터 색상을 따라가므로, 범례 전용으로 깔끔하게 처리됩니다.
 
+    # 2. 누적 수급선
+    fig.add_trace(go.Scatter(
+        x=df['Date'], y=df['정렬영점누적'], mode='lines', 
+        name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2)
+    ), secondary_y=True)
+
+    # 3. 이동평균선들
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_5'], mode='lines', name="5일 이평선", line=dict(color='orange', width=1.2, dash='solid')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.2, dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.2, dash='dot')), secondary_y=True)
 
-    fig.update_layout(template="plotly_white", height=450, hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_layout(
+        template="plotly_white", height=450, hovermode="x unified", 
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
     return fig
 
 # [기획서 원문 반영 분류 알고리즘]
@@ -135,21 +142,20 @@ def classify_stock_groups(subject_col):
         stock_name = matched_row['종목명'].values[0]
         display_name = f"{stock_name} ({ticker})"
         
-        # 1. 새싹 조건 (기획서 5-4항 원문 반영): 
-        # 이전 기간 동안 순매수가 전혀 없거나 음수였는데, 최근 가장 마지막 날(또는 최근 며칠)에 최초로 매수가 들어오기 시작한 기업
-        past_cumulative = sub_series.iloc[:-1].sum() # 오늘 전까지의 누적
-        latest_day = sub_series.iloc[-1]           # 가장 최근일 순매수
+        # 1. 새싹 조건 (기획서 5-4항 원문 반영)
+        past_cumulative = sub_series.iloc[:-1].sum()
+        latest_day = sub_series.iloc[-1]
         
         if past_cumulative <= 0 and latest_day > 0:
             sprout_list.append(display_name)
             
-        # 2. 희망 조건 (5-5항): 5일 추세선(합산)이 직전 5일 대비 20% 이상 증가
+        # 2. 희망 조건 (5-5항)
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
             if growth_rate >= 20:
                 hope_list.append(display_name)
                 
-        # 3. 정리 조건 (5-6항, 6-5항): 5일 추세가 10% 이상 하락 (단, 30% 초과 하락 시 퇴출)
+        # 3. 정리 조건 (5-6항, 6-5항)
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
             if 10 <= drop_rate <= 30:
@@ -183,34 +189,13 @@ with tab1:
         else:
             st.error("데이터가 없습니다. init_data.py를 먼저 실행해 주세요.")
 
-# ==========================================
-# ⭐ 탭 2: 나의 새싹 즐겨찾기 추세 레이더
-# ==========================================
-with tab2:
-    st.header("🌱 나의 관심 새싹 수급 추세 레이더")
-    favorite_stocks = st.multiselect("📌 즐겨찾기 종목:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
-    
-    if favorite_stocks:
-        local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
-        col_name = subject_col_map[target_subject]
-        
-        for stock_name in favorite_stocks:
-            ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
-            name = stock_df[stock_df['선택용_이름'] == stock_name]['종목명'].values[0]
-            df_fav = get_clean_investor_data(ticker, datetime.date(2026, 1, 1), datetime.date.today(), col_name)
-            
-            if not df_fav.empty:
-                fig = draw_pure_zero_start_chart(df_fav, name, target_subject)
-                fig.update_layout(title=f"📈 {name} [{target_subject}] 수급 및 이동평균선", height=400)
-                st.plotly_chart(fig, use_container_width=True)
-
 col_name = subject_col_map[target_subject]
 sprouts, hopes, cleans = classify_stock_groups(col_name)
 
 # ==========================================
-# 🌱 탭 3: 새싹 발굴
+# 🌱 탭 2: 새싹 발굴
 # ==========================================
-with tab3:
+with tab2:
     st.header(f"🌱 [{target_subject}] 새싹 발굴 종목 리스트")
     st.info("최초로 순매수가 유입되기 시작한(과거 무매수/매도 상태에서 전환된) 기업들입니다.")
     if sprouts:
@@ -227,9 +212,9 @@ with tab3:
         st.warning("현재 조건에 부합하는 새싹 종목이 없습니다.")
 
 # ==========================================
-# 🚀 탭 4: 희망 종목
+# 🚀 탭 3: 희망 종목
 # ==========================================
-with tab4:
+with tab3:
     st.header(f"🚀 [{target_subject}] 희망 종목 리스트")
     st.info("5일 수급 추세가 직전 5일 대비 20% 이상 증가하여 탄력을 받은 기업들입니다.")
     if hopes:
@@ -246,9 +231,9 @@ with tab4:
         st.warning("현재 조건에 부합하는 희망 종목이 없습니다.")
 
 # ==========================================
-# ⚠️ 탭 5: 정리 종목
+# ⚠️ 탭 4: 정리 종목
 # ==========================================
-with tab5:
+with tab4:
     st.header(f"⚠️ [{target_subject}] 정리 대상 종목 리스트")
     st.info("5일 추세가 10% 이상 하락한 종목입니다. (단, 하락률 30% 초과 종목은 정리 그룹에서 자동 퇴출됩니다.)")
     if cleans:
