@@ -14,9 +14,9 @@ local_storage = LocalStorage()
 # 2. 사이드바 - 글로벌 옵션 설정
 st.sidebar.header("🛠️ 대시보드 설정")
 
-# [개선] 5번 항목에 맞춰 단일 선택 대신 다중 주체 선택(멀티셀렉터) 지원
+# 5번 항목: 멀티 주체 비교 선택 (다중 선택)
 target_subjects = st.sidebar.multiselect(
-    "비교할 투자 주체 선택 (다중 선택 가능):",
+    "분석할 투자 주체 선택 (다중 선택 가능):",
     ["외국인", "기관", "개인"],
     default=["외국인"]
 )
@@ -76,13 +76,11 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 멀티 주체 비교 차트 구현]
+# [탭1 전용: 멀티 주체 비교 차트 엔진]
 def draw_multi_subject_chart(df, label_name, selected_subs):
     df = df.sort_values(by='Date').reset_index(drop=True)
-    
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
-    # 주체별 고유 색상 지정
     color_map = {
         "외국인": "#1f77b4",  # 파랑
         "기관": "#ff7f0e",    # 주황
@@ -92,29 +90,36 @@ def draw_multi_subject_chart(df, label_name, selected_subs):
     for sub in selected_subs:
         col_name = subject_col_map[sub]
         if col_name in df.columns:
-            # 영점 기준 누적 수급선 계산
             series = df[col_name].fillna(0)
             cum_series = series.cumsum()
             first_val = cum_series.iloc[0] if not cum_series.empty else 0
             aligned_cum = cum_series - first_val
             
-            # 주체별 누적 수급선 추가
+            # 당일 순매수 막대 (선택된 주체가 1개일 때만 가시적으로 표시하거나 투명도 조절)
+            colors = ['red' if val >= 0 else 'blue' for val in series]
+            fig.add_trace(go.Bar(
+                x=df['Date'], y=series, marker_color=colors,
+                name=f"{sub} 당일 순매수", opacity=0.3, showlegend=True
+            ), secondary_y=False)
+            
+            # 누적 수급선
             fig.add_trace(go.Scatter(
                 x=df['Date'], y=aligned_cum, mode='lines', 
                 name=f"{sub} 누적 수급선", 
-                line=dict(color=color_map.get(sub, 'gray'), width=2)
+                line=dict(color=color_map.get(sub, 'gray'), width=2.5)
             ), secondary_y=True)
 
     fig.update_layout(
-        template="plotly_white", height=480, hovermode="x unified", 
+        template="plotly_white", height=500, hovermode="x unified", 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=f"📈 {label_name} - 멀티 투자 주체 누적 수급 비교"
+        title=f"📈 {label_name} - 선택 주체 수급 비교 분석"
     )
     return fig
 
-# [기존 단일 차트 엔진 (새싹/희망/정리 탭용)]
-def draw_pure_zero_start_chart(df, label_name, subject_name):
+# [기타 탭 전용: 단일 주체 상세 차트 (이동평균선 포함)]
+def draw_single_subject_chart(df, label_name, subject_name, col_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
+    df['일별지표'] = df[col_name].fillna(0)
     df['누적지표'] = df['일별지표'].cumsum()
     first_day_cum = df['누적지표'].iloc[0] if not df['누적지표'].empty else 0
     df['정렬영점누적'] = df['누적지표'] - first_day_cum
@@ -127,19 +132,13 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
     fig.add_trace(go.Bar(
-        x=df['Date'], y=[0] * len(df), 
-        name=f"{subject_name} 당일 순매수", 
-        marker_color='lightgray',
-        showlegend=True,
-        hoverinfo='skip'
+        x=df['Date'], y=[0] * len(df), name=f"{subject_name} 당일 순매수", 
+        marker_color='lightgray', showlegend=True, hoverinfo='skip'
     ), secondary_y=False)
 
     fig.add_trace(go.Bar(
-        x=df['Date'], y=df['일별지표'], 
-        marker_color=colors, 
-        name="", 
-        showlegend=False, 
-        opacity=0.5,
+        x=df['Date'], y=df['일별지표'], marker_color=colors, 
+        name="", showlegend=False, opacity=0.5,
         width=24 * 3600 * 1000 * 0.7
     ), secondary_y=False)
 
@@ -158,7 +157,7 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     )
     return fig
 
-# [분류 알고리즘 (대표 기준 주체인 외국인 기준 스크리닝 유지)]
+# [분류 알고리즘 (선택한 주체 기준 동적 스크리닝)]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -200,8 +199,12 @@ def classify_stock_groups(subject_col):
             
     return sprout_list, hope_list, clean_list
 
+# 대표 주체 설정 (다중 선택 중 첫 번째 주체 또는 기본값)
+primary_subject = target_subjects[0] if target_subjects else "외국인"
+primary_col = subject_col_map[primary_subject]
+
 # ==========================================
-# 🔍 탭 1: 개별 종목 분석 (멀티 주체 비교 적용)
+# 🔍 탭 1: 개별 종목 분석 (멀티 비교)
 # ==========================================
 with tab1:
     st.header("🔍 종목별 상세 통합 멀티 수급 비교 분석")
@@ -221,17 +224,17 @@ with tab1:
             fig_multi = draw_multi_subject_chart(df_all_data, selected_name, target_subjects)
             st.plotly_chart(fig_multi, use_container_width=True)
         else:
-            st.warning("비교할 주체를 사이드바에서 선택해 주시거나 데이터가 있는지 확인해 주세요.")
+            st.warning("사이드바에서 비교할 주체를 최소 1개 이상 선택해 주세요.")
 
-# 스크리닝 기준은 기본 외국인(Foreigner)으로 수행
-sprouts, hopes, cleans = classify_stock_groups("Foreigner")
+# 스크리닝 실행 (사이드바에서 선택한 첫 번째 주체 기준)
+sprouts, hopes, cleans = classify_stock_groups(primary_col)
 
 # ==========================================
 # 🌱 탭 2: 새싹 발굴
 # ==========================================
 with tab2:
-    st.header("🌱 새싹 발굴 종목 리스트 (외국인 기준)")
-    st.info("최초로 순매수가 유입되기 시작한(과거 무매수/매도 상태에서 전환된) 기업들입니다.")
+    st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
+    st.info(f"최근 [{primary_subject}]의 순매수가 유입되기 시작한(과거 무매수/매도 상태에서 전환된) 기업들입니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
@@ -239,19 +242,18 @@ with tab2:
         
         df_sprout = get_all_investor_data(s_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_sprout.empty:
-            df_sprout['일별지표'] = df_sprout['Foreigner']
-            fig = draw_pure_zero_start_chart(df_sprout, s_name, "외국인")
-            fig.update_layout(title=f"🌱 [새싹] {selected_sprout} 수급 흐름", height=450)
+            fig = draw_single_subject_chart(df_sprout, s_name, primary_subject, primary_col)
+            fig.update_layout(title=f"🌱 [새싹] {selected_sprout} [{primary_subject}] 수급 흐름", height=450)
             st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("현재 조건에 부합하는 새싹 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 새싹 종목이 없습니다.")
 
 # ==========================================
 # 🚀 탭 3: 희망 종목
 # ==========================================
 with tab3:
-    st.header("🚀 희망 종목 리스트 (외국인 기준)")
-    st.info("5일 수급 추세가 직전 5일 대비 20% 이상 증가하여 탄력을 받은 기업들입니다.")
+    st.header(f"🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
+    st.info(f"5일 [{primary_subject}] 수급 추세가 직전 5일 대비 20% 이상 증가하여 탄력을 받은 기업들입니다.")
     if hopes:
         selected_hope = st.selectbox("희망 종목 선택:", hopes, key="hope_sel")
         h_ticker = selected_hope.split("(")[-1].replace(")", "").strip()
@@ -259,19 +261,18 @@ with tab3:
         
         df_hope = get_all_investor_data(h_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_hope.empty:
-            df_hope['일별지표'] = df_hope['Foreigner']
-            fig = draw_pure_zero_start_chart(df_hope, h_name, "외국인")
-            fig.update_layout(title=f"🚀 [희망] {selected_hope} 수급 흐름", height=450)
+            fig = draw_single_subject_chart(df_hope, h_name, primary_subject, primary_col)
+            fig.update_layout(title=f"🚀 [희망] {selected_hope} [{primary_subject}] 수급 흐름", height=450)
             st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("현재 조건에 부합하는 희망 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 희망 종목이 없습니다.")
 
 # ==========================================
 # ⚠️ 탭 4: 정리 종목
 # ==========================================
 with tab4:
-    st.header("⚠️ 정리 대상 종목 리스트 (외국인 기준)")
-    st.info("5일 추세가 10% 이상 하락한 종목입니다. (단, 하락률 30% 초과 종목은 정리 그룹에서 자동 퇴출됩니다.)")
+    st.header(f"⚠️ 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
+    st.info(f"5일 [{primary_subject}] 추세가 10% 이상 하락한 종목입니다. (하락률 30% 초과 시 자동 퇴출)")
     if cleans:
         selected_clean = st.selectbox("정리 종목 선택:", cleans, key="clean_sel")
         c_ticker = selected_clean.split("(")[-1].replace(")", "").strip()
@@ -279,18 +280,17 @@ with tab4:
         
         df_clean = get_all_investor_data(c_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_clean.empty:
-            df_clean['일별지표'] = df_clean['Foreigner']
-            fig = draw_pure_zero_start_chart(df_clean, c_name, "외국인")
-            fig.update_layout(title=f"⚠️ [정리] {selected_clean} 수급 흐름", height=450)
+            fig = draw_single_subject_chart(df_clean, c_name, primary_subject, primary_col)
+            fig.update_layout(title=f"⚠️ [정리] {selected_clean} [{primary_subject}] 수급 흐름", height=450)
             st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("현재 조건에 부합하는 정리 대상 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 정리 대상 종목이 없습니다.")
 
 # ==========================================
 # ⭐ 탭 5: 나의 새싹 즐겨찾기
 # ==========================================
 with tab5:
-    st.header("⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
+    st.header(f"⭐ 나의 관심 새싹 즐겨찾기 ([{primary_subject}] 기준)")
     favorite_stocks = st.multiselect("📌 즐겨찾기 종목 선택:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
     
     if favorite_stocks:
@@ -302,9 +302,8 @@ with tab5:
             df_fav = get_all_investor_data(ticker, datetime.date(2026, 1, 1), datetime.date.today())
             
             if not df_fav.empty:
-                df_fav['일별지표'] = df_fav['Foreigner']
-                fig = draw_pure_zero_start_chart(df_fav, name, "외국인")
-                fig.update_layout(title=f"📈 {name} [외국인] 수급 및 이동평균선", height=400)
+                fig = draw_single_subject_chart(df_fav, name, primary_subject, primary_col)
+                fig.update_layout(title=f"📈 {name} [{primary_subject}] 수급 및 이동평균선", height=400)
                 st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
