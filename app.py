@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# [UI/UX 고도화] 탭 선택 디자인 개선 (거슬리는 기본 주황색 배경 제거 및 깔끔한 상단 포인트 라인 적용)
+# [UI/UX 고도화] 탭 선택 디자인 개선 및 갤럭시(안드로이드) 체크박스 텍스트 잘림 현상 방지 수정
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -45,6 +45,12 @@ st.markdown("""
     }
 
     div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
+    
+    /* 갤럭시(안드로이드 크롬) 등 모바일에서 체크박스 텍스트가 잘리거나 안 보이는 현상 완벽 방지 */
+    .stCheckbox label span {
+        word-break: keep-all;
+        white-space: normal !important;
+    }
     
     .hot-badge {
         background-color: #fff3cd;
@@ -224,7 +230,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [분류 알고리즘]
+# [분류 알고리즘: 새싹 로직을 '0에서 최초로 양수(첫 구매)가 유입되는 시점'으로 완벽 수정]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -250,18 +256,16 @@ def classify_stock_groups(subject_col):
         if matched_row.empty: continue
         stock_name = matched_row['종목명'].values[0]
         
-        # 1. 🌱 새싹 탭 로직
-        jan_to_jun_mask = (group['Date'] >= '2026-01-01') & (group['Date'] <= '2026-06-30')
-        jan_to_jun_data = group.loc[jan_to_jun_mask, subject_col].fillna(0)
-        if not jan_to_jun_data.empty and (jan_to_jun_data > 0).any():
-            is_sprout = False
-        else:
-            recent_days = sub_series.iloc[-5:]
-            history_before_recent = sub_series.iloc[:-5]
-            is_sprout = (history_before_recent.sum() <= 0 and recent_days.sum() > 0 and (recent_days > 0).any())
+        # 1. 🌱 새싹 탭 로직 (0 또는 음수이던 상태에서 최초로 0을 돌파하여 양수(+) 순매수가 유입되는 최초 진입 순간)
+        history_before_recent = sub_series.iloc[:-5]
+        recent_days = sub_series.iloc[-5:]
+        
+        # 과거 기간 동안 순매수 기록이 없거나(0 이하), 최근 직전까지 유입이 없다가 최근 5일 내에 '최초로 0보다 큰 순매수'가 찍힌 경우
+        is_sprout = (history_before_recent.max() <= 0) and (recent_days > 0).any()
             
         if is_sprout:
-            is_recent_5d = recent_days.iloc[-1] > 0 and sub_series.iloc[-6:-1].sum() <= 0
+            # 최근 5일 중 가장 마지막 날(또는 최근 일자)에 막 0을 넘겨 처음 구매가 들어온 경우 신규 표시(🌱)
+            is_recent_5d = recent_days.iloc[-1] > 0 and (history_before_recent.max() <= 0 and sub_series.iloc[-6] <= 0 if len(sub_series) >= 6 else True)
             prefix = "🌱 " if is_recent_5d else ""
             sprout_list.append(f"{prefix}{stock_name} ({ticker})")
             
