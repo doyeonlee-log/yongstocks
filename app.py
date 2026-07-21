@@ -11,23 +11,23 @@ from streamlit_local_storage import LocalStorage
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 주체별 세부 표시 옵션 (외국인을 주황색 기준, 기관/개인 차별화)
+# 2. 사이드바 - 주체별 세부 표시 옵션
 st.sidebar.header("🛠️ 대시보드 및 수급 설정")
 
 subject_configs = {}
 subjects_meta = {
     "외국인": {
-        "color": "#FF7F0E", # 기준이 되는 선명한 주황색
+        "color": "#FF7F0E", # 기준: 주황색
         "pos_bar": "#FF4500", "neg_bar": "#FFD700", 
         "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
     },
     "기관": {
-        "color": "#1F77B4", # 깔끔한 파란색 계열
+        "color": "#1F77B4", # 기관: 파란색
         "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE", 
         "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False
     },
     "개인": {
-        "color": "#2CA02C", # 뚜렷한 초록/청록색 계열
+        "color": "#2CA02C", # 개인: 초록색
         "pos_bar": "#32CD32", "neg_bar": "#8FBC8F", 
         "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False
     }
@@ -171,7 +171,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [분류 알고리즘]
+# [엄격한 최초 유입 기준 분류 알고리즘]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -197,15 +197,25 @@ def classify_stock_groups(subject_col):
         stock_name = matched_row['종목명'].values[0]
         display_name = f"{stock_name} ({ticker})"
         
-        past_cumulative = sub_series.iloc[:-1].sum()
-        latest_day = sub_series.iloc[-1]
+        # [새싹 조건 강화]: 데이터 전체 기간 동안 이전엔 '단 한번도' 양수 매수 기록이 없거나 0 이었거나 매도만 하다가,
+        # 최근 며칠(또는 마지막 날) 사이에 '생애 최초로' 순매수가 처음 들어오기 시작한 경우만 발굴
+        # (과거에 이미 들락날락했던 우량주나 변동성 종목은 완벽히 배제됨)
+        history_before_recent = sub_series.iloc[:-5] # 최근 5일 전까지의 모든 기록
+        recent_5_days = sub_series.iloc[-5:]         # 최근 5일 기록
         
-        if past_cumulative <= 0 and latest_day > 0:
-            sprout_list.append(display_name)
+        # 조건: 과거 기록 전체의 누적 합산이 <= 0 이고, 최근 5일간 처음으로 순매수가 유입되기 시작함
+        if history_before_recent.sum() <= 0 and recent_5_days.sum() > 0 and (recent_5_days > 0).any():
+            # 과거에 거래가 아예 없던 유령 종목이 아니라 최근에 막 시작된 진짜 새싹인지 확인
+            if len(sub_series[sub_series != 0]) > 2: 
+                sprout_list.append(display_name)
+            
+        # 희망 조건: 5일 수급 추세가 직전 5일 대비 20% 이상 증가
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
             if growth_rate >= 20:
                 hope_list.append(display_name)
+                
+        # 정리 조건: 5일 추세가 10% 이상 하락 (30% 초과 시 퇴출)
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
             if 10 <= drop_rate <= 30:
@@ -247,7 +257,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"사이드바에서 선택된 대표 주체([{primary_subject}]) 기준으로 최초 순매수가 유입된 기업들입니다.")
+    st.info(f"과거 기록 전체에서 수급이 없다가 최근 생애 최초로 순매수가 유입되기 시작한 기업들입니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
@@ -258,7 +268,7 @@ with tab2:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
             st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout")
     else:
-        st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 새싹 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준 생애 최초 유입 조건에 부합하는 새싹 종목이 없습니다.")
 
 # ==========================================
 # 🚀 탭 3: 희망 종목
