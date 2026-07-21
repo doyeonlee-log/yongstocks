@@ -218,7 +218,9 @@ def draw_custom_multi_chart(df, label_name, configs):
     fig.update_layout(
         template="plotly_white", height=500, hovermode="x unified", 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=f"📈 {label_name} - 주체별 맞춤 수급 및 이평선 비교 분석"
+        title=f"📈 {label_name} - 주체별 맞춤 수급 및 이평선 비교 분석",
+        dragmode="zoom",
+        uirevision="constant"
     )
     return fig
 
@@ -307,7 +309,7 @@ with tab1:
         
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1")
+            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": True})
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
 
@@ -334,7 +336,7 @@ with tab2:
         df_sprout = get_all_investor_data(s_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_sprout.empty:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout")
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout", config={"scrollZoom": True, "displayModeBar": True})
     else:
         st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 새싹 종목이 없습니다.")
 
@@ -352,7 +354,7 @@ with tab3:
         df_hope = get_all_investor_data(h_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_hope.empty:
             fig = draw_custom_multi_chart(df_hope, h_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope")
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope", config={"scrollZoom": True, "displayModeBar": True})
     else:
         st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 희망 종목이 없습니다.")
 
@@ -370,7 +372,7 @@ with tab4:
         df_clean = get_all_investor_data(c_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_clean.empty:
             fig = draw_custom_multi_chart(df_clean, c_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean")
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean", config={"scrollZoom": True, "displayModeBar": True})
     else:
         st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 정리 대상 종목이 없습니다.")
 
@@ -391,6 +393,6 @@ with tab5:
             
             if not df_fav.empty:
                 fig = draw_custom_multi_chart(df_fav, name, subject_configs)
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}")
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}", config={"scrollZoom": True, "displayModeBar": True})
     else:
         st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
