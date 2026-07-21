@@ -11,7 +11,7 @@ from streamlit_local_storage import LocalStorage
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 주체별 세부 표시 옵션 컨트롤러 구성
+# 2. 사이드바 - 주체별 세부 표시 옵션 컨트롤러 구성 (중복 키 방지 적용)
 st.sidebar.header("🛠️ 대시보드 및 수급 설정")
 
 subject_configs = {}
@@ -23,12 +23,12 @@ subjects_meta = {
 
 for sub, meta in subjects_meta.items():
     with st.sidebar.expander(f"📌 [{sub}] 상세 보기 설정", expanded=(sub == "외국인")):
-        use_sub = st.checkbox(f"{sub} 데이터 활성화", value=(sub == "외국인"), key=f"use_{sub}")
-        show_bar = st.checkbox("당일 순매수 바(Bar)", value=meta["default_bar"], key=f"bar_{sub}")
-        show_cum = st.checkbox("누적 수급선", value=meta["default_cum"], key=f"cum_{sub}")
-        show_ma5 = st.checkbox("5일 이동평균선", value=meta["default_ma5"], key=f"ma5_{sub}")
-        show_ma10 = st.checkbox("10일 이동평균선", value=meta["default_ma10"], key=f"ma10_{sub}")
-        show_ma20 = st.checkbox("20일 이동평균선", value=meta["default_ma20"], key=f"ma20_{sub}")
+        use_sub = st.checkbox(f"{sub} 데이터 활성화", value=(sub == "외국인"), key=f"chk_active_{sub}")
+        show_bar = st.checkbox("당일 순매수 바(Bar)", value=meta["default_bar"], key=f"chk_bar_{sub}")
+        show_cum = st.checkbox("누적 수급선", value=meta["default_cum"], key=f"chk_cum_{sub}")
+        show_ma5 = st.checkbox("5일 이동평균선", value=meta["default_ma5"], key=f"chk_ma5_{sub}")
+        show_ma10 = st.checkbox("10일 이동평균선", value=meta["default_ma10"], key=f"chk_ma10_{sub}")
+        show_ma20 = st.checkbox("20일 이동평균선", value=meta["default_ma20"], key=f"chk_ma20_{sub}")
         
         subject_configs[sub] = {
             "active": use_sub,
@@ -113,7 +113,7 @@ def draw_custom_multi_chart(df, label_name, configs):
         
         # 1. 당일 순매수 바 그래프
         if conf["bar"]:
-            bar_colors = [base_color if val >= 0 else '#aec7e8' for val in series] # 양수 테마색, 음수 연한톤
+            bar_colors = [base_color if val >= 0 else '#aec7e8' for val in series]
             fig.add_trace(go.Bar(
                 x=df['Date'], y=series, marker_color=bar_colors,
                 name=f"{sub} 당일 순매수", opacity=0.35, width=24*3600*1000*0.6
@@ -158,7 +158,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [분류 알고리즘 (활성화된 첫 번째 주체 기준 스크리닝)]
+# [분류 알고리즘]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -200,7 +200,6 @@ def classify_stock_groups(subject_col):
             
     return sprout_list, hope_list, clean_list
 
-# 스크리닝 기준 주체 결정 (사이드바에서 체크된 첫 주체, 없으면 외국인)
 active_subs = [s for s, c in subject_configs.items() if c["active"]]
 primary_subject = active_subs[0] if active_subs else "외국인"
 primary_col = subject_col_map[primary_subject]
@@ -217,7 +216,7 @@ with tab1:
         selected_name = stock_df[stock_df['선택용_이름'] == selected_stock]['종목명'].values[0]
 
     with col_input2:
-        date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()))
+        date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab1")
 
     if isinstance(date_range_1, tuple) and len(date_range_1) == 2:
         df_all_data = get_all_investor_data(selected_ticker, date_range_1[0], date_range_1[1])
@@ -228,7 +227,6 @@ with tab1:
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
 
-# 스크리닝 실행
 sprouts, hopes, cleans = classify_stock_groups(primary_col)
 
 # ==========================================
