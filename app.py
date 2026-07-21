@@ -171,7 +171,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [엄격한 최초 유입 기준 분류 알고리즘 (1월 초 착시 대형주 원천 배제)]
+# [엄격한 새싹 판정 알고리즘: 1월~6월 사이 거래/유입 이력 원천 차단]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -197,19 +197,21 @@ def classify_stock_groups(subject_col):
         stock_name = matched_row['종목명'].values[0]
         display_name = f"{stock_name} ({ticker})"
         
-        # [새싹 필터 강화] 
-        # 1. 데이터 첫 날(시작일)에 이미 순매수가 들어와 있던 종목은 '이전부터 있던 종목'으로 간주하여 원천 배제
-        first_day_val = sub_series.iloc[0]
-        if first_day_val > 0:
+        # [새싹 필터 최고 강화]: 
+        # 2026년 1월 1일부터 6월 말일까지의 데이터 구간 분리
+        jan_to_jun_mask = (group['Date'] >= '2026-01-01') & (group['Date'] <= '2026-06-30')
+        jan_to_jun_data = group.loc[jan_to_jun_mask, subject_col].fillna(0)
+        
+        # 만약 1월~6월 사이에 단 한 번이라도 순매수(>0) 기록이 존재했다면 -> 이미 거래되던 종목이므로 새싹에서 무조건 제외!
+        if not jan_to_jun_data.empty and (jan_to_jun_data > 0).any():
             continue
             
-        # 2. 과거 기간 동안 매수세가 없다가 최근 5일 사이에 처음으로 유입된 경우만 인정
-        history_before_recent = sub_series.iloc[:-5] 
-        recent_5_days = sub_series.iloc[-5:]         
+        # 1월~6월 사이에는 유입이 전혀 없거나 0/매도 상태였다가, 최근(7월 이후 등)에 비로소 처음으로 순매수가 유입된 경우만 새싹으로 인정
+        recent_days = sub_series.iloc[-5:]
+        history_before_recent = sub_series.iloc[:-5]
         
-        if history_before_recent.sum() <= 0 and recent_5_days.sum() > 0 and (recent_5_days > 0).any():
-            if len(sub_series[sub_series != 0]) > 2: 
-                sprout_list.append(display_name)
+        if history_before_recent.sum() <= 0 and recent_days.sum() > 0 and (recent_days > 0).any():
+            sprout_list.append(display_name)
             
         # 희망 조건: 5일 수급 추세가 직전 5일 대비 20% 이상 증가
         if prev_5 > 0:
@@ -259,7 +261,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"데이터 시작일부터 이미 거래되던 대형주를 제외하고, 최근 생애 최초로 순매수가 유입되기 시작한 기업들입니다.")
+    st.info(f"2026년 1월~6월 사이에 유입 이력이 전혀 없다가 최근 비로소 최초로 수급이 터진 진정한 새싹 기업들입니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
@@ -270,7 +272,7 @@ with tab2:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
             st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout")
     else:
-        st.warning(f"현재 [{primary_subject}] 기준 생애 최초 유입 조건에 부합하는 새싹 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준 1~6월 무소속 후 최근 최초 유입된 새싹 종목이 없습니다.")
 
 # ==========================================
 # 🚀 탭 3: 희망 종목
