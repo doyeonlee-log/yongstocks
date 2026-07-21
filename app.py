@@ -14,24 +14,38 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# [UI/UX 고도화] 강조 뱃지 및 카드 하이라이트 스타일 주입
+# [UI/UX 고도화] 탭 선택 디자인 개선 (거슬리는 기본 주황색 배경 제거 및 깔끔한 상단 포인트 라인 적용)
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    
+    /* 탭 전체 영역 간격 */
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 2px solid #e9ecef; }
+    
+    /* 개별 탭 기본 스타일 */
     .stTabs [data-baseweb="tab"] { 
-        height: 45px; 
+        height: 48px; 
         white-space: pre-wrap; 
         background-color: #ffffff; 
-        border-radius: 6px 6px 0px 0px; 
+        border-radius: 8px 8px 0px 0px; 
         font-weight: 600;
         font-size: 15px;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        border-bottom: none;
     }
+    
+    /* 선택된 탭 스타일 (거슬리는 주황색 배경 대신 상단 포인트 라인과 깔끔한 텍스트 강조) */
     .stTabs [aria-selected="true"] { 
-        background-color: #FF7F0E !important; 
-        color: white !important; 
+        background-color: #ffffff !important; 
+        color: #0047AB !important; /* 선명한 블루 포인트 텍스트 */
+        border-top: 3px solid #0047AB !important; /* 상단 포인트 강조선 */
+        border-bottom: 2px solid #ffffff !important;
+        font-weight: 700;
     }
+
     div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
+    
     .hot-badge {
         background-color: #fff3cd;
         border: 1px solid #ffeeba;
@@ -208,7 +222,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [수정된 분류 알고리즘: 전 5일 vs 금번 5일 비교 및 최근 5일 이내 신규 진입 감지]
+# [분류 알고리즘]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -223,20 +237,18 @@ def classify_stock_groups(subject_col):
     
     for ticker, group in grouped:
         group = group.sort_values('Date')
-        if len(group) < 15: continue  # 비교를 위해 최소 15일 이상 데이터 필요
+        if len(group) < 15: continue
             
         sub_series = group[subject_col].fillna(0)
-        
-        # 금번 5일 (최근 5일) vs 전 5일 (그 직전 5일)
-        recent_5 = sub_series.iloc[-5:].sum()     # 금번 5일
-        prev_5 = sub_series.iloc[-10:-5].sum()    # 전 5일
-        prev_prev_5 = sub_series.iloc[-15:-10].sum() # 그 전전 5일 (최근 5일 이내 신규 진입 여부 판단용)
+        recent_5 = sub_series.iloc[-5:].sum()
+        prev_5 = sub_series.iloc[-10:-5].sum()
+        prev_prev_5 = sub_series.iloc[-15:-10].sum()
         
         matched_row = stock_df[stock_df['티커'] == ticker]
         if matched_row.empty: continue
         stock_name = matched_row['종목명'].values[0]
         
-        # 1. 🌱 새싹 탭 로직 (생애 최초 유입)
+        # 1. 🌱 새싹 탭 로직
         jan_to_jun_mask = (group['Date'] >= '2026-01-01') & (group['Date'] <= '2026-06-30')
         jan_to_jun_data = group.loc[jan_to_jun_mask, subject_col].fillna(0)
         if not jan_to_jun_data.empty and (jan_to_jun_data > 0).any():
@@ -247,26 +259,23 @@ def classify_stock_groups(subject_col):
             is_sprout = (history_before_recent.sum() <= 0 and recent_days.sum() > 0 and (recent_days > 0).any())
             
         if is_sprout:
-            # 최근 5일 이내 새로 유입된 경우만 🌱 표시
             is_recent_5d = recent_days.iloc[-1] > 0 and sub_series.iloc[-6:-1].sum() <= 0
             prefix = "🌱 " if is_recent_5d else ""
             sprout_list.append(f"{prefix}{stock_name} ({ticker})")
             
-        # 2. 🚀 희망 탭 로직 (전 5일 대비 금번 5일 수급 증가율 20% 이상)
+        # 2. 🚀 희망 탭 로직
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
             if growth_rate >= 20:
-                # 최근 5일 이내에 새로 20% 이상 진입(또는 탄력 가속)된 경우에만 🔥 표시
                 prev_growth_rate = (prev_5 - prev_prev_5) / abs(prev_prev_5) * 100 if prev_prev_5 != 0 else 0
                 is_recent_hot = (growth_rate >= 20 and prev_growth_rate < 20)
                 prefix = "🔥 " if is_recent_hot else ""
                 hope_list.append(f"{prefix}{stock_name} ({ticker})")
                 
-        # 3. 🚨 정리 탭 로직 (전 5일 대비 금번 5일 수급 하락률 10% 초과)
+        # 3. 🚨 정리 탭 로직
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
             if drop_rate > 10:
-                # 최근 5일 이내에 급하락세로 진입한 경우에만 🚨 표시
                 prev_drop_rate = (prev_prev_5 - prev_5) / abs(prev_prev_5) * 100 if prev_prev_5 != 0 else 0
                 is_recent_warning = (drop_rate > 10 and prev_drop_rate <= 10)
                 prefix = "🚨 " if is_recent_warning else ""
@@ -316,7 +325,7 @@ def clean_pure_name(val):
 # ==========================================
 with tab2:
     st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 최근 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hot-badge">💡 상반기(1~6월) 무소속 이후 생애 최초로 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = clean_sel_name(selected_sprout)
