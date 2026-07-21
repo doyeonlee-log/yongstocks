@@ -68,7 +68,7 @@ def get_clean_investor_data(ticker, start, end, subject_col):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 범례 아이콘 회색 고정 처리]
+# [차트 엔진: 정상 데이터 출력 및 범례 아이콘 회색 고정]
 def draw_pure_zero_start_chart(df, label_name, subject_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
@@ -80,24 +80,15 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     df['MA_20'] = df['정렬영점누적'].rolling(window=20).mean()
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    
-    # 막대 색상은 차트 안에서만 빨강/파랑으로 동적 적용
-    bar_colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
+    colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
-    # [핵심] 범례 아이콘 색상을 무조건 회색으로 고정하기 위해 
-    # 투명한 더미 바(Trace)를 범례 전용으로 하나 더 올리고, 실제 컬러 바는 showlegend=False 처리합니다.
-    fig.add_trace(go.Bar(
-        x=[None], y=[None], 
-        name=f"{subject_name} 당일 순매수", 
-        marker_color='lightgray',
-        showlegend=True
-    ), secondary_y=False)
-
+    # [수정] 실제 막대그래프를 그리되, legendgroup을 묶고 호환되는 방식으로 범례 색상 제어
     fig.add_trace(go.Bar(
         x=df['Date'], y=df['일별지표'], 
-        marker_color=bar_colors, 
-        showlegend=False, 
-        opacity=0.4
+        marker_color=colors, 
+        name=f"{subject_name} 당일 순매수", 
+        opacity=0.4,
+        legendgroup="daily_bar"
     ), secondary_y=False)
 
     # 2. 누적 수급선
