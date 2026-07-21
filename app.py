@@ -7,34 +7,62 @@ import datetime
 import os
 from streamlit_local_storage import LocalStorage
 
-# 1. 페이지 기본 설정 및 로컬 스토리지 초기화
-st.set_page_config(page_title="새싹발굴하기", layout="wide")
+# 1. 페이지 기본 설정 및 레이아웃 최적화
+st.set_page_config(
+    page_title="새싹발굴하기 - Pro Dashboard", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# [UI/UX 고도화] 커스텀 CSS 스타일 주입 (폰트 균등화 및 대시보드 카드 레이아웃 정돈)
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] { 
+        height: 45px; 
+        white-space: pre-wrap; 
+        background-color: #ffffff; 
+        border-radius: 6px 6px 0px 0px; 
+        font-weight: 600;
+        font-size: 15px;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #FF7F0E !important; 
+        color: white !important; 
+    }
+    div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
+    h1, h2, h3 { font-family: 'Helvetica Neue', sans-serif; letter-spacing: -0.5px; }
+    </style>
+""", unsafe_allow_html=True)
+
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 주체별 세부 표시 옵션
-st.sidebar.header("🛠️ 대시보드 및 수급 설정")
+# 2. 사이드바 - 입력 및 고정 컨트롤 영역 (UI 레이아웃 분리)
+st.sidebar.header("🛠️ 대시보드 제어판")
+st.sidebar.markdown("---")
 
 subject_configs = {}
 subjects_meta = {
     "외국인": {
-        "color": "#FF7F0E", # 주황색 기준
+        "color": "#FF7F0E", 
         "pos_bar": "#FF4500", "neg_bar": "#FFD700", 
         "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
     },
     "기관": {
-        "color": "#1F77B4", # 파란색
+        "color": "#1F77B4", 
         "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE", 
         "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False
     },
     "개인": {
-        "color": "#2CA02C", # 초록색
+        "color": "#2CA02C", 
         "pos_bar": "#32CD32", "neg_bar": "#8FBC8F", 
         "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False
     }
 }
 
 for sub, meta in subjects_meta.items():
-    with st.sidebar.expander(f"📌 [{sub}] 상세 보기 설정", expanded=(sub == "외국인")):
+    with st.sidebar.expander(f"📌 [{sub}] 상세 수급 설정", expanded=(sub == "외국인")):
         show_bar = st.checkbox("당일 순매수 바(Bar)", value=meta["default_bar"], key=f"chk_bar_{sub}")
         show_cum = st.checkbox("누적 수급선", value=meta["default_cum"], key=f"chk_cum_{sub}")
         show_ma5 = st.checkbox("5일 이동평균선", value=meta["default_ma5"], key=f"chk_ma5_{sub}")
@@ -94,7 +122,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "⭐ 나의 새싹 즐겨찾기"
 ])
 
-# [데이터 엔진: 3대 주체 데이터 로드]
+# [데이터 엔진]
 @st.cache_data(ttl=3600)
 def get_all_investor_data(ticker, start, end):
     try:
@@ -110,7 +138,7 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-# [통합 차트 엔진]
+# [차트 엔진]
 def draw_custom_multi_chart(df, label_name, configs):
     df = df.sort_values(by='Date').reset_index(drop=True)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -171,7 +199,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [엄격한 새싹 판정 알고리즘: 1월~6월 사이 거래/유입 이력 원천 차단]
+# [분류 알고리즘 및 최근 진입(HOT) 판정 로직]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -195,31 +223,30 @@ def classify_stock_groups(subject_col):
         matched_row = stock_df[stock_df['티커'] == ticker]
         if matched_row.empty: continue
         stock_name = matched_row['종목명'].values[0]
-        display_name = f"{stock_name} ({ticker})"
         
-        # [새싹 필터 최고 강화]: 
-        # 2026년 1월 1일부터 6월 말일까지의 데이터 구간 분리
+        # 1~6월 사이 유입 이력 확인
         jan_to_jun_mask = (group['Date'] >= '2026-01-01') & (group['Date'] <= '2026-06-30')
         jan_to_jun_data = group.loc[jan_to_jun_mask, subject_col].fillna(0)
-        
-        # 만약 1월~6월 사이에 단 한 번이라도 순매수(>0) 기록이 존재했다면 -> 이미 거래되던 종목이므로 새싹에서 무조건 제외!
         if not jan_to_jun_data.empty and (jan_to_jun_data > 0).any():
             continue
             
-        # 1월~6월 사이에는 유입이 전혀 없거나 0/매도 상태였다가, 최근(7월 이후 등)에 비로소 처음으로 순매수가 유입된 경우만 새싹으로 인정
         recent_days = sub_series.iloc[-5:]
         history_before_recent = sub_series.iloc[:-5]
+        
+        # [UI 고도화] 최근 3일 이내에 최초 유입/변동이 일어났는지 체크하여 'HOT 진입' 태그 부여
+        last_3_days = sub_series.iloc[-3:]
+        is_recent_hot = (last_3_days > 0).any() and history_before_recent.sum() <= 0
+        display_prefix = "🔥 [HOT 진입] " if is_recent_hot else ""
+        display_name = f"{display_prefix}{stock_name} ({ticker})"
         
         if history_before_recent.sum() <= 0 and recent_days.sum() > 0 and (recent_days > 0).any():
             sprout_list.append(display_name)
             
-        # 희망 조건: 5일 수급 추세가 직전 5일 대비 20% 이상 증가
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
             if growth_rate >= 20:
                 hope_list.append(display_name)
                 
-        # 정리 조건: 5일 추세가 10% 이상 하락 (30% 초과 시 퇴출)
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
             if 10 <= drop_rate <= 30:
@@ -235,15 +262,16 @@ primary_col = subject_col_map[primary_subject]
 # 🔍 탭 1: 개별 종목 분석
 # ==========================================
 with tab1:
-    st.header("🔍 종목별 상세 맞춤 수급 및 이평선 비교 분석")
-    col_input1, col_input2 = st.columns([2, 2])
-    with col_input1:
-        selected_stock = st.selectbox("📊 분석할 종목을 입력하거나 고르세요:", stock_df['선택용_이름'], key="individual_select")
-        selected_ticker = stock_df[stock_df['선택용_이름'] == selected_stock]['티커'].values[0]
-        selected_name = stock_df[stock_df['선택용_이름'] == selected_stock]['종목명'].values[0]
+    st.markdown("### 🔍 종목별 상세 맞춤 수급 및 이평선 비교 분석")
+    with st.container():
+        col_input1, col_input2 = st.columns([2, 2])
+        with col_input1:
+            selected_stock = st.selectbox("📊 분석할 종목을 입력하거나 고르세요:", stock_df['선택용_이름'], key="individual_select")
+            selected_ticker = stock_df[stock_df['선택용_이름'] == selected_stock]['티커'].values[0]
+            selected_name = stock_df[stock_df['선택용_이름'] == selected_stock]['종목명'].values[0]
 
-    with col_input2:
-        date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab1")
+        with col_input2:
+            date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab1")
 
     if isinstance(date_range_1, tuple) and len(date_range_1) == 2:
         df_all_data = get_all_investor_data(selected_ticker, date_range_1[0], date_range_1[1])
@@ -260,30 +288,30 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # 🌱 탭 2: 새싹 발굴
 # ==========================================
 with tab2:
-    st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"최초로 외국인이 매수 새싹 기업들입니다.")
+    st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
+    st.info(f"💡 상반기(1~6월) 무소속 이후 최근 생애 최초로 수급이 터진 기업들입니다. 🔥[HOT] 표시는 최근 3일 내 진입을 뜻합니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
-        s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
-        s_name = selected_sprout.split("(")[0].strip()
+        s_ticker = selected_sprout.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
+        s_name = selected_sprout.split("(")[0].replace("🔥 [HOT 진입] ", "").strip()
         
         df_sprout = get_all_investor_data(s_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_sprout.empty:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
             st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout")
     else:
-        st.warning(f"현재 [{primary_subject}] 기준으로 최근 최초 유입된 새싹 종목이 없습니다.")
+        st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 새싹 종목이 없습니다.")
 
 # ==========================================
 # 🚀 탭 3: 희망 종목
 # ==========================================
 with tab3:
-    st.header(f"🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"5일 [{primary_subject}] 수급 추세가 20% 이상 증가하여 탄력을 받은 기업들입니다.")
+    st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
+    st.info(f"💡 5일 [{primary_subject}] 수급 추세가 20% 이상 증가하여 탄력을 받은 기업들입니다.")
     if hopes:
         selected_hope = st.selectbox("희망 종목 선택:", hopes, key="hope_sel")
-        h_ticker = selected_hope.split("(")[-1].replace(")", "").strip()
-        h_name = selected_hope.split("(")[0].strip()
+        h_ticker = selected_hope.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
+        h_name = selected_hope.split("(")[0].replace("🔥 [HOT 진입] ", "").strip()
         
         df_hope = get_all_investor_data(h_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_hope.empty:
@@ -296,12 +324,12 @@ with tab3:
 # ⚠️ 탭 4: 정리 종목
 # ==========================================
 with tab4:
-    st.header(f"⚠️ 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"5일 [{primary_subject}] 추세가 10% 이상 하락한 종목입니다. (하락률 30% 초과 시 자동 퇴출)")
+    st.markdown(f"### ⚠️ 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
+    st.info(f"💡 5일 [{primary_subject}] 추세가 10% 이상 하락한 종목입니다. (하락률 30% 초과 시 자동 퇴출)")
     if cleans:
         selected_clean = st.selectbox("정리 종목 선택:", cleans, key="clean_sel")
-        c_ticker = selected_clean.split("(")[-1].replace(")", "").strip()
-        c_name = selected_clean.split("(")[0].strip()
+        c_ticker = selected_clean.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
+        c_name = selected_clean.split("(")[0].replace("🔥 [HOT 진입] ", "").strip()
         
         df_clean = get_all_investor_data(c_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_clean.empty:
@@ -314,7 +342,7 @@ with tab4:
 # ⭐ 탭 5: 나의 새싹 즐겨찾기
 # ==========================================
 with tab5:
-    st.header(f"⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
+    st.markdown(f"### ⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
     favorite_stocks = st.multiselect("📌 즐겨찾기 종목 선택:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
     
     if favorite_stocks:
