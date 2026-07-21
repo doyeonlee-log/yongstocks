@@ -11,7 +11,7 @@ from streamlit_local_storage import LocalStorage
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 주체별 세부 표시 옵션 컨트롤러 구성 (중복 키 방지 적용)
+# 2. 사이드바 - 주체별 세부 표시 옵션 컨트롤러 구성
 st.sidebar.header("🛠️ 대시보드 및 수급 설정")
 
 subject_configs = {}
@@ -95,7 +95,7 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-# [통합 차트 엔진: 주체별 테마 색상, 선 스타일, 체크박스 옵션 완벽 반영]
+# [통합 차트 엔진]
 def draw_custom_multi_chart(df, label_name, configs):
     df = df.sort_values(by='Date').reset_index(drop=True)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -111,7 +111,6 @@ def draw_custom_multi_chart(df, label_name, configs):
         series = df[col_name].fillna(0)
         base_color = conf["color"]
         
-        # 1. 당일 순매수 바 그래프
         if conf["bar"]:
             bar_colors = [base_color if val >= 0 else '#aec7e8' for val in series]
             fig.add_trace(go.Bar(
@@ -119,7 +118,6 @@ def draw_custom_multi_chart(df, label_name, configs):
                 name=f"{sub} 당일 순매수", opacity=0.35, width=24*3600*1000*0.6
             ), secondary_y=False)
             
-        # 2. 누적 수급선 및 이동평균선 계산
         cum_series = series.cumsum()
         first_val = cum_series.iloc[0] if not cum_series.empty else 0
         aligned_cum = cum_series - first_val
@@ -223,7 +221,7 @@ with tab1:
         
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            st.plotly_chart(fig_custom, use_container_width=True)
+            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1")
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
 
@@ -243,7 +241,7 @@ with tab2:
         df_sprout = get_all_investor_data(s_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_sprout.empty:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout")
     else:
         st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 새싹 종목이 없습니다.")
 
@@ -261,7 +259,7 @@ with tab3:
         df_hope = get_all_investor_data(h_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_hope.empty:
             fig = draw_custom_multi_chart(df_hope, h_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope")
     else:
         st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 희망 종목이 없습니다.")
 
@@ -279,7 +277,7 @@ with tab4:
         df_clean = get_all_investor_data(c_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_clean.empty:
             fig = draw_custom_multi_chart(df_clean, c_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean")
     else:
         st.warning(f"현재 [{primary_subject}] 기준 조건에 부합하는 정리 대상 종목이 없습니다.")
 
@@ -293,13 +291,13 @@ with tab5:
     if favorite_stocks:
         local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
         
-        for stock_name in favorite_stocks:
+        for idx, stock_name in enumerate(favorite_stocks):
             ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
             name = stock_df[stock_df['선택용_이름'] == stock_name]['종목명'].values[0]
             df_fav = get_all_investor_data(ticker, datetime.date(2026, 1, 1), datetime.date.today())
             
             if not df_fav.empty:
                 fig = draw_custom_multi_chart(df_fav, name, subject_configs)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}")
     else:
         st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
