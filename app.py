@@ -68,7 +68,7 @@ def get_clean_investor_data(ticker, start, end, subject_col):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 범례 전용 회색 트레이스 + 실제 컬러 바 조합]
+# [차트 엔진: 막대 두께(width)를 도톰하게 개선]
 def draw_pure_zero_start_chart(df, label_name, subject_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
@@ -80,37 +80,27 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     df['MA_20'] = df['정렬영점누적'].rolling(window=20).mean()
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    bar_colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
+    colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
-    # [핵심 해결] 
-    # 1. 범례에만 나타나는 회색 아이콘용 더미 바 (데이터는 빈 값 처리하되 날짜를 맞춰서 X축 꼬임 방지)
-    fig.add_trace(go.Bar(
-        x=df['Date'], y=[0] * len(df), 
-        name=f"{subject_name} 당일 순매수", 
-        marker_color='lightgray',
-        showlegend=True,
-        hoverinfo='skip'
-    ), secondary_y=False)
-
-    # 2. 실제 차트에 색상별로 그려지는 막대 (범례에는 나타나지 않게 showlegend=False)
+    # 1. 당일 순매수 막대그래프 (width 속성을 주어 얇은 선처럼 보이는 현상 방지)
     fig.add_trace(go.Bar(
         x=df['Date'], y=df['일별지표'], 
-        marker_color=bar_colors, 
-        name="", 
-        showlegend=False, 
-        opacity=0.4
+        marker_color=colors, 
+        name=f"{subject_name} 당일 순매수", 
+        opacity=0.5,
+        width=24 * 3600 * 1000 * 0.7  # 날짜 간격 대비 70% 두께로 묵직하게 설정
     ), secondary_y=False)
 
-    # 3. 누적 수급선
+    # 2. 누적 수급선
     fig.add_trace(go.Scatter(
         x=df['Date'], y=df['정렬영점누적'], mode='lines', 
-        name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2)
+        name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2.5)
     ), secondary_y=True)
 
-    # 4. 이동평균선들
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_5'], mode='lines', name="5일 이평선", line=dict(color='orange', width=1.2, dash='solid')), secondary_y=True)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.2, dash='dash')), secondary_y=True)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.2, dash='dot')), secondary_y=True)
+    # 3. 이동평균선들
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_5'], mode='lines', name="5일 이평선", line=dict(color='orange', width=1.5, dash='solid')), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.5, dash='dash')), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.5, dash='dot')), secondary_y=True)
 
     fig.update_layout(
         template="plotly_white", height=450, hovermode="x unified", 
