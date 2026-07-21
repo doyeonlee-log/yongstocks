@@ -325,7 +325,7 @@ def clean_pure_name(val):
 # ==========================================
 with tab2:
     st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 상반기(1~6월) 무소속 이후 생애 최초로 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hot-badge">💡 최근 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = clean_sel_name(selected_sprout)
