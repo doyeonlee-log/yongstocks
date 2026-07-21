@@ -289,7 +289,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"💡 상반기(1~6월) 무소속 이후 최근 생애 최초로 수급이 터진 기업들입니다. 🔥[HOT] 표시는 최근 3일 내 진입을 뜻합니다.")
+    st.info(f"💡 최근 생애 최초로 외국인 수급이 발생한 기업들입니다. 🔥[HOT] 표시는 최근 3일 내 진입을 뜻합니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
