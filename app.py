@@ -17,17 +17,17 @@ st.sidebar.header("🛠️ 대시보드 및 수급 설정")
 subject_configs = {}
 subjects_meta = {
     "외국인": {
-        "color": "#FF7F0E", # 기준: 주황색
+        "color": "#FF7F0E", # 주황색 기준
         "pos_bar": "#FF4500", "neg_bar": "#FFD700", 
         "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
     },
     "기관": {
-        "color": "#1F77B4", # 기관: 파란색
+        "color": "#1F77B4", # 파란색
         "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE", 
         "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False
     },
     "개인": {
-        "color": "#2CA02C", # 개인: 초록색
+        "color": "#2CA02C", # 초록색
         "pos_bar": "#32CD32", "neg_bar": "#8FBC8F", 
         "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False
     }
@@ -171,7 +171,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [엄격한 최초 유입 기준 분류 알고리즘]
+# [엄격한 최초 유입 기준 분류 알고리즘 (1월 초 착시 대형주 원천 배제)]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -197,15 +197,17 @@ def classify_stock_groups(subject_col):
         stock_name = matched_row['종목명'].values[0]
         display_name = f"{stock_name} ({ticker})"
         
-        # [새싹 조건 강화]: 데이터 전체 기간 동안 이전엔 '단 한번도' 양수 매수 기록이 없거나 0 이었거나 매도만 하다가,
-        # 최근 며칠(또는 마지막 날) 사이에 '생애 최초로' 순매수가 처음 들어오기 시작한 경우만 발굴
-        # (과거에 이미 들락날락했던 우량주나 변동성 종목은 완벽히 배제됨)
-        history_before_recent = sub_series.iloc[:-5] # 최근 5일 전까지의 모든 기록
-        recent_5_days = sub_series.iloc[-5:]         # 최근 5일 기록
+        # [새싹 필터 강화] 
+        # 1. 데이터 첫 날(시작일)에 이미 순매수가 들어와 있던 종목은 '이전부터 있던 종목'으로 간주하여 원천 배제
+        first_day_val = sub_series.iloc[0]
+        if first_day_val > 0:
+            continue
+            
+        # 2. 과거 기간 동안 매수세가 없다가 최근 5일 사이에 처음으로 유입된 경우만 인정
+        history_before_recent = sub_series.iloc[:-5] 
+        recent_5_days = sub_series.iloc[-5:]         
         
-        # 조건: 과거 기록 전체의 누적 합산이 <= 0 이고, 최근 5일간 처음으로 순매수가 유입되기 시작함
         if history_before_recent.sum() <= 0 and recent_5_days.sum() > 0 and (recent_5_days > 0).any():
-            # 과거에 거래가 아예 없던 유령 종목이 아니라 최근에 막 시작된 진짜 새싹인지 확인
             if len(sub_series[sub_series != 0]) > 2: 
                 sprout_list.append(display_name)
             
@@ -257,7 +259,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"과거 기록 전체에서 수급이 없다가 최근 생애 최초로 순매수가 유입되기 시작한 기업들입니다.")
+    st.info(f"데이터 시작일부터 이미 거래되던 대형주를 제외하고, 최근 생애 최초로 순매수가 유입되기 시작한 기업들입니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
