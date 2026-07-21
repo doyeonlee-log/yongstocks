@@ -46,9 +46,7 @@ st.markdown("""
 
     div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
     
-    /* =========================================================
-       [핵심 수정] 갤럭시(안드로이드 크롬) 체크박스 텍스트 가시성 확보
-       ========================================================= */
+    /* 갤럭시(안드로이드 크롬) 등 모바일에서 체크박스 텍스트가 잘리거나 안 보이는 현상 완벽 방지 */
     section[data-testid="stSidebar"] .stCheckbox p,
     section[data-testid="stSidebar"] .stCheckbox label,
     section[data-testid="stSidebar"] .stCheckbox span {
@@ -238,7 +236,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [분류 알고리즘: 새싹 로직 - 0에서 최초로 양수(첫 구매)가 유입되는 시점]
+# [분류 알고리즘: 새싹 로직 - 과거에 순매수 기록이 아예 없거나 0이던 상태에서 최초로 0을 넘어 양수(+) 유입이 발생하는 순간]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -264,14 +262,14 @@ def classify_stock_groups(subject_col):
         if matched_row.empty: continue
         stock_name = matched_row['종목명'].values[0]
         
-        # 1. 🌱 새싹 탭 로직 (과거 기록이 0 이하이다가 최근 5일 이내 최초로 양수 유입)
+        # 1. 🌱 새싹 탭 로직 (과거 최대값이 정확히 0이거나 그 이하였고, 최근 5일 내에 최초로 0 초과 양수 유입 발생)
         history_before_recent = sub_series.iloc[:-5]
         recent_days = sub_series.iloc[-5:]
         
-        is_sprout = (history_before_recent.max() <= 0) and (recent_days > 0).any()
+        is_sprout = (history_before_recent.max() == 0) and (recent_days > 0).any()
             
         if is_sprout:
-            is_recent_5d = recent_days.iloc[-1] > 0 and (history_before_recent.max() <= 0 and sub_series.iloc[-6] <= 0 if len(sub_series) >= 6 else True)
+            is_recent_5d = recent_days.iloc[-1] > 0 and (history_before_recent.max() == 0 and sub_series.iloc[-6] == 0 if len(sub_series) >= 6 else True)
             prefix = "🌱 " if is_recent_5d else ""
             sprout_list.append(f"{prefix}{stock_name} ({ticker})")
             
