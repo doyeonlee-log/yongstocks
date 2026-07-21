@@ -39,7 +39,6 @@ stock_df = load_stock_list()
 stock_df['티커'] = stock_df['티커'].astype(str).str.zfill(6)
 stock_df['선택용_이름'] = stock_df['종목명'] + " (" + stock_df['티커'] + ")"
 
-# 즐겨찾기 탭 삭제 후 4개 탭으로 구성
 tab1, tab2, tab3, tab4 = st.tabs([
     "🔎 개별 종목 분석", 
     "🌱 새싹 발굴", 
@@ -69,7 +68,7 @@ def get_clean_investor_data(ticker, start, end, subject_col):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 범례 아이콘 회색 네모 적용]
+# [차트 엔진: 범례 아이콘 회색 고정 처리]
 def draw_pure_zero_start_chart(df, label_name, subject_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
@@ -81,17 +80,25 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     df['MA_20'] = df['정렬영점누적'].rolling(window=20).mean()
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
-
-    # 1. 당일 순매수 막대그래프 (legendgroup을 주어 범례 아이콘을 단색 회색 네모로 고정)
-    fig.add_trace(go.Bar(
-        x=df['Date'], y=df['일별지표'], marker_color=colors, 
-        name=f"{subject_name} 당일 순매수", opacity=0.4,
-        legendgroup="bar", marker=dict(pattern=dict(shape=""))
-    ), secondary_y=False)
     
-    # 범례 아이콘 색상을 강제로 회색으로 보이게 하는 더미 트레이스 또는 스타일 조정
-    # Plotly에서 막대 범례 아이콘은 데이터 색상을 따라가므로, 범례 전용으로 깔끔하게 처리됩니다.
+    # 막대 색상은 차트 안에서만 빨강/파랑으로 동적 적용
+    bar_colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
+
+    # [핵심] 범례 아이콘 색상을 무조건 회색으로 고정하기 위해 
+    # 투명한 더미 바(Trace)를 범례 전용으로 하나 더 올리고, 실제 컬러 바는 showlegend=False 처리합니다.
+    fig.add_trace(go.Bar(
+        x=[None], y=[None], 
+        name=f"{subject_name} 당일 순매수", 
+        marker_color='lightgray',
+        showlegend=True
+    ), secondary_y=False)
+
+    fig.add_trace(go.Bar(
+        x=df['Date'], y=df['일별지표'], 
+        marker_color=bar_colors, 
+        showlegend=False, 
+        opacity=0.4
+    ), secondary_y=False)
 
     # 2. 누적 수급선
     fig.add_trace(go.Scatter(
@@ -142,20 +149,17 @@ def classify_stock_groups(subject_col):
         stock_name = matched_row['종목명'].values[0]
         display_name = f"{stock_name} ({ticker})"
         
-        # 1. 새싹 조건 (기획서 5-4항 원문 반영)
         past_cumulative = sub_series.iloc[:-1].sum()
         latest_day = sub_series.iloc[-1]
         
         if past_cumulative <= 0 and latest_day > 0:
             sprout_list.append(display_name)
             
-        # 2. 희망 조건 (5-5항)
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
             if growth_rate >= 20:
                 hope_list.append(display_name)
                 
-        # 3. 정리 조건 (5-6항, 6-5항)
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
             if 10 <= drop_rate <= 30:
