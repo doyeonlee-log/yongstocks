@@ -11,14 +11,13 @@ from streamlit_local_storage import LocalStorage
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 글로벌 옵션 설정 (금액 옵션 제거 완료)
+# 2. 사이드바 - 글로벌 옵션 설정
 st.sidebar.header("🛠️ 대시보드 설정")
 target_subject = st.sidebar.selectbox(
     "분석할 투자 주체 선택:",
     ("외국인", "기관", "개인")
 )
 
-# 주체별 컬럼 매핑 사전
 subject_col_map = {
     "외국인": "Foreigner",
     "기관": "Institution",
@@ -49,8 +48,14 @@ if saved_favs is None:
 else:
     default_favs = [x.strip() for x in saved_favs.split(",") if x.strip() in stock_df['선택용_이름'].values]
 
-# 탭 구성
-tab1, tab2 = st.tabs(["🔎 개별 종목 분석", "🌱 나의 새싹 즐겨찾기"])
+# 탭 5개 구성
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🔎 개별 종목 분석", 
+    "🌱 나의 새싹 즐겨찾기", 
+    "🌱 새싹 발굴", 
+    "🚀 희망 종목", 
+    "⚠️ 정리 종목"
+])
 
 # [데이터 엔진: 3대 주체 CSV 읽기 지원]
 @st.cache_data(ttl=3600)
@@ -95,8 +100,62 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.2, dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.2, dash='dot')), secondary_y=True)
 
-    fig.update_layout(template="plotly_white", height=480, hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_layout(template="plotly_white", height=450, hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     return fig
+
+# [기획서 원문 반영 분류 알고리즘]
+@st.cache_data(ttl=3600)
+def classify_stock_groups(subject_col):
+    if not os.path.exists("data/investor_data.csv"):
+        return [], [], []
+    
+    df_all = pd.read_csv("data/investor_data.csv", dtype={'Ticker': str})
+    df_all['Date'] = pd.to_datetime(df_all['Date'])
+    df_all['Ticker'] = df_all['Ticker'].astype(str).str.zfill(6)
+    
+    sprout_list = []
+    hope_list = []
+    clean_list = []
+    
+    grouped = df_all.groupby('Ticker')
+    
+    for ticker, group in grouped:
+        group = group.sort_values('Date')
+        if len(group) < 10: 
+            continue
+            
+        sub_series = group[subject_col].fillna(0)
+        
+        recent_5 = sub_series.iloc[-5:].sum()
+        prev_5 = sub_series.iloc[-10:-5].sum()
+        
+        matched_row = stock_df[stock_df['티커'] == ticker]
+        if matched_row.empty:
+            continue
+        stock_name = matched_row['종목명'].values[0]
+        display_name = f"{stock_name} ({ticker})"
+        
+        # 1. 새싹 조건 (기획서 5-4항 원문 반영): 
+        # 이전 기간 동안 순매수가 전혀 없거나 음수였는데, 최근 가장 마지막 날(또는 최근 며칠)에 최초로 매수가 들어오기 시작한 기업
+        past_cumulative = sub_series.iloc[:-1].sum() # 오늘 전까지의 누적
+        latest_day = sub_series.iloc[-1]           # 가장 최근일 순매수
+        
+        if past_cumulative <= 0 and latest_day > 0:
+            sprout_list.append(display_name)
+            
+        # 2. 희망 조건 (5-5항): 5일 추세선(합산)이 직전 5일 대비 20% 이상 증가
+        if prev_5 > 0:
+            growth_rate = (recent_5 - prev_5) / prev_5 * 100
+            if growth_rate >= 20:
+                hope_list.append(display_name)
+                
+        # 3. 정리 조건 (5-6항, 6-5항): 5일 추세가 10% 이상 하락 (단, 30% 초과 하락 시 퇴출)
+        if prev_5 > 0 and recent_5 < prev_5:
+            drop_rate = (prev_5 - recent_5) / prev_5 * 100
+            if 10 <= drop_rate <= 30:
+                clean_list.append(display_name)
+            
+    return sprout_list, hope_list, clean_list
 
 # ==========================================
 # 🔍 탭 1: 개별 종목 분석
@@ -144,3 +203,63 @@ with tab2:
                 fig = draw_pure_zero_start_chart(df_fav, name, target_subject)
                 fig.update_layout(title=f"📈 {name} [{target_subject}] 수급 및 이동평균선", height=400)
                 st.plotly_chart(fig, use_container_width=True)
+
+col_name = subject_col_map[target_subject]
+sprouts, hopes, cleans = classify_stock_groups(col_name)
+
+# ==========================================
+# 🌱 탭 3: 새싹 발굴
+# ==========================================
+with tab3:
+    st.header(f"🌱 [{target_subject}] 새싹 발굴 종목 리스트")
+    st.info("최초로 순매수가 유입되기 시작한(과거 무매수/매도 상태에서 전환된) 기업들입니다.")
+    if sprouts:
+        selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
+        s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
+        s_name = selected_sprout.split("(")[0].strip()
+        
+        df_sprout = get_clean_investor_data(s_ticker, datetime.date(2026, 1, 1), datetime.date.today(), col_name)
+        if not df_sprout.empty:
+            fig = draw_pure_zero_start_chart(df_sprout, s_name, target_subject)
+            fig.update_layout(title=f"🌱 [새싹] {selected_sprout} 수급 흐름", height=450)
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("현재 조건에 부합하는 새싹 종목이 없습니다.")
+
+# ==========================================
+# 🚀 탭 4: 희망 종목
+# ==========================================
+with tab4:
+    st.header(f"🚀 [{target_subject}] 희망 종목 리스트")
+    st.info("5일 수급 추세가 직전 5일 대비 20% 이상 증가하여 탄력을 받은 기업들입니다.")
+    if hopes:
+        selected_hope = st.selectbox("희망 종목 선택:", hopes, key="hope_sel")
+        h_ticker = selected_hope.split("(")[-1].replace(")", "").strip()
+        h_name = selected_hope.split("(")[0].strip()
+        
+        df_hope = get_clean_investor_data(h_ticker, datetime.date(2026, 1, 1), datetime.date.today(), col_name)
+        if not df_hope.empty:
+            fig = draw_pure_zero_start_chart(df_hope, h_name, target_subject)
+            fig.update_layout(title=f"🚀 [희망] {selected_hope} 수급 흐름", height=450)
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("현재 조건에 부합하는 희망 종목이 없습니다.")
+
+# ==========================================
+# ⚠️ 탭 5: 정리 종목
+# ==========================================
+with tab5:
+    st.header(f"⚠️ [{target_subject}] 정리 대상 종목 리스트")
+    st.info("5일 추세가 10% 이상 하락한 종목입니다. (단, 하락률 30% 초과 종목은 정리 그룹에서 자동 퇴출됩니다.)")
+    if cleans:
+        selected_clean = st.selectbox("정리 종목 선택:", cleans, key="clean_sel")
+        c_ticker = selected_clean.split("(")[-1].replace(")", "").strip()
+        c_name = selected_clean.split("(")[0].strip()
+        
+        df_clean = get_clean_investor_data(c_ticker, datetime.date(2026, 1, 1), datetime.date.today(), col_name)
+        if not df_clean.empty:
+            fig = draw_pure_zero_start_chart(df_clean, c_name, target_subject)
+            fig.update_layout(title=f"⚠️ [정리] {selected_clean} 수급 흐름", height=450)
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("현재 조건에 부합하는 정리 대상 종목이 없습니다.")
