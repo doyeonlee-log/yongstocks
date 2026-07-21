@@ -161,7 +161,7 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 모바일 터치 핀치 줌 및 잘림 현상 방지 최적화]
+# [차트 엔진: 모바일/PC에서 시계열 데이터 연속 슬라이딩(호버/터치 트래킹) 최적화]
 def draw_custom_multi_chart(df, label_name, configs):
     df = df.sort_values(by='Date').reset_index(drop=True)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -216,12 +216,20 @@ def draw_custom_multi_chart(df, label_name, configs):
             ), secondary_y=True)
 
     fig.update_layout(
-        template="plotly_white", height=500, hovermode="x unified", 
+        template="plotly_white", 
+        height=500, 
+        hovermode="x unified",         # X축 기준 통합 호버 (손가락으로 슬라이딩할 때 날짜별 데이터가 연속으로 바뀜)
+        hoverdistance=100,             # 터치/마우스 인식 반경 확대
+        spikedistance=100,             # 가이드라인(스파이크라인) 활성화
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=f"📈 {label_name} - 주체별 맞춤 수급 및 이평선 비교 분석",
-        dragmode="pan",          # 모바일/PC에서 드래그 시 화면이 부드럽게 이동(팬)하도록 설정하여 잘림 방지
-        uirevision="constant"    # 옵션 변경 시에도 확대/이동 상태 유지
+        dragmode="zoom",
+        uirevision="constant"
     )
+    
+    # X축/Y축에 터치 슬라이딩 시 따라다니는 가이드라인(Spike line) 추가하여 연속 탐색 지원
+    fig.update_xaxes(showspikes=True, spikemode="toaxis", spikesnap="cursor", spikecolor="gray", spikethickness=1)
+    
     return fig
 
 # [분류 알고리즘]
@@ -309,7 +317,7 @@ with tab1:
         
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            # 모바일 터치 제스처에서 잘림 없이 확대/축소가 부드럽도록 설정 보완
+            # 모바일 연속 터치 트래킹 최적화 config 적용
             st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
