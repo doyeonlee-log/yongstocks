@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# [UI/UX 고도화] 커스텀 CSS 스타일 주입 (폰트 균등화 및 대시보드 카드 레이아웃 정돈)
+# [UI/UX 고도화] 커스텀 CSS 스타일 주입
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -38,7 +38,7 @@ st.markdown("""
 
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 입력 및 고정 컨트롤 영역 (UI 레이아웃 분리)
+# 2. 사이드바 - 제어판
 st.sidebar.header("🛠️ 대시보드 제어판")
 st.sidebar.markdown("---")
 
@@ -199,7 +199,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [분류 알고리즘 및 최근 진입(HOT) 판정 로직]
+# [분류 알고리즘 및 5일 기준 그룹별 맞춤 시각 효과 적용]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -233,24 +233,25 @@ def classify_stock_groups(subject_col):
         recent_days = sub_series.iloc[-5:]
         history_before_recent = sub_series.iloc[:-5]
         
-        # [UI 고도화] 최근 3일 이내에 최초 유입/변동이 일어났는지 체크하여 'HOT 진입' 태그 부여
-        last_3_days = sub_series.iloc[-3:]
-        is_recent_hot = (last_3_days > 0).any() and history_before_recent.sum() <= 0
-        display_prefix = "🔥 [HOT 진입] " if is_recent_hot else ""
-        display_name = f"{display_prefix}{stock_name} ({ticker})"
-        
+        # 1. 🌱 새싹 조건: 최근 5일 이내에 최초 유입이 일어났는지 체크
         if history_before_recent.sum() <= 0 and recent_days.sum() > 0 and (recent_days > 0).any():
-            sprout_list.append(display_name)
+            is_recent_5d = (recent_days > 0).any() and sub_series.iloc[-1] > 0
+            prefix = "🌱 [최근 5일 새싹 진입] " if is_recent_5d else "🌱 "
+            sprout_list.append(f"{prefix}{stock_name} ({ticker})")
             
+        # 2. 🚀 희망 조건: 5일 추세 20% 이상 증가 (최근 5일 내 급증 여부 체크)
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
             if growth_rate >= 20:
-                hope_list.append(display_name)
+                prefix = "🚀 [최근 5일 희망 탄력] " if growth_rate >= 30 else "🚀 "
+                hope_list.append(f"{prefix}{stock_name} ({ticker})")
                 
+        # 3. ⚠️ 정리 조건: 5일 추세 10% 이상 하락 (30% 초과 퇴출)
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
             if 10 <= drop_rate <= 30:
-                clean_list.append(display_name)
+                prefix = "🚨 [최근 5일 정리 주의] " if drop_rate >= 20 else "⚠️ "
+                clean_list.append(f"{prefix}{stock_name} ({ticker})")
             
     return sprout_list, hope_list, clean_list
 
@@ -284,16 +285,23 @@ with tab1:
 
 sprouts, hopes, cleans = classify_stock_groups(primary_col)
 
+# 텍스트 정제 헬퍼 함수
+def clean_sel_name(val):
+    return val.split("(")[-1].replace(")", "").replace("🌱 [최근 5일 새싹 진입] ", "").replace("🚀 [최근 5일 희망 탄력] ", "").replace("🚨 [최근 5일 정리 주의] ", "").strip()
+
+def clean_pure_name(val):
+    return val.split("(")[0].replace("🌱 [최근 5일 새싹 진입] ", "").replace("🚀 [최근 5일 희망 탄력] ", "").replace("🚨 [최근 5일 정리 주의] ", "").replace("🌱 ", "").replace("🚀 ", "").replace("⚠️ ", "").strip()
+
 # ==========================================
 # 🌱 탭 2: 새싹 발굴
 # ==========================================
 with tab2:
     st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"💡 최근 생애 최초로 외국인 수급이 발생한 기업들입니다. 🔥[HOT] 표시는 최근 3일 내 진입을 뜻합니다.")
+    st.info("💡 최근 생애 최초로 외국인 수급이 터진 기업들입니다. 🌱 표시는 최근 5일 내 진입을 뜻합니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
-        s_ticker = selected_sprout.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
-        s_name = selected_sprout.split("(")[0].replace("🔥 [HOT 진입] ", "").strip()
+        s_ticker = clean_sel_name(selected_sprout)
+        s_name = clean_pure_name(selected_sprout)
         
         df_sprout = get_all_investor_data(s_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_sprout.empty:
@@ -307,11 +315,11 @@ with tab2:
 # ==========================================
 with tab3:
     st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"💡 5일 [{primary_subject}] 수급 추세가 20% 이상 증가하여 탄력을 받은 기업들입니다.")
+    st.info("💡 5일 수급 추세가 20% 이상 증가하여 탄력을 받은 기업들입니다. 🚀 표시는 최근 5일 내 급증을 뜻합니다.")
     if hopes:
         selected_hope = st.selectbox("희망 종목 선택:", hopes, key="hope_sel")
-        h_ticker = selected_hope.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
-        h_name = selected_hope.split("(")[0].replace("🔥 [HOT 진입] ", "").strip()
+        h_ticker = clean_sel_name(selected_hope)
+        h_name = clean_pure_name(selected_hope)
         
         df_hope = get_all_investor_data(h_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_hope.empty:
@@ -324,12 +332,12 @@ with tab3:
 # ⚠️ 탭 4: 정리 종목
 # ==========================================
 with tab4:
-    st.markdown(f"### ⚠️ 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"💡 5일 [{primary_subject}] 추세가 10% 이상 하락한 종목입니다. (하락률 30% 초과 시 자동 퇴출)")
+    st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
+    st.info("💡 5일 추세가 10% 이상 하락한 종목입니다. (하락률 30% 초과 시 자동 퇴출)")
     if cleans:
         selected_clean = st.selectbox("정리 종목 선택:", cleans, key="clean_sel")
-        c_ticker = selected_clean.split("(")[-1].replace(")", "").replace("🔥 [HOT 진입] ", "").strip()
-        c_name = selected_clean.split("(")[0].replace("🔥 [HOT 진입] ", "").strip()
+        c_ticker = clean_sel_name(selected_clean)
+        c_name = clean_pure_name(selected_clean)
         
         df_clean = get_all_investor_data(c_ticker, datetime.date(2026, 1, 1), datetime.date.today())
         if not df_clean.empty:
