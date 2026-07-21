@@ -11,33 +11,48 @@ from streamlit_local_storage import LocalStorage
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 주체별 세부 표시 옵션 컨트롤러 구성
+# 2. 사이드바 - 주체별 세부 표시 옵션 (외국인을 주황색 기준, 기관/개인 차별화)
 st.sidebar.header("🛠️ 대시보드 및 수급 설정")
 
 subject_configs = {}
 subjects_meta = {
-    "외국인": {"color": "#1f77b4", "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False},
-    "기관": {"color": "#ff7f0e", "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False},
-    "개인": {"color": "#9467bd", "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False}
+    "외국인": {
+        "color": "#FF7F0E", # 기준이 되는 선명한 주황색
+        "pos_bar": "#FF4500", "neg_bar": "#FFD700", 
+        "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
+    },
+    "기관": {
+        "color": "#1F77B4", # 깔끔한 파란색 계열
+        "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE", 
+        "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False
+    },
+    "개인": {
+        "color": "#2CA02C", # 뚜렷한 초록/청록색 계열
+        "pos_bar": "#32CD32", "neg_bar": "#8FBC8F", 
+        "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False
+    }
 }
 
 for sub, meta in subjects_meta.items():
     with st.sidebar.expander(f"📌 [{sub}] 상세 보기 설정", expanded=(sub == "외국인")):
-        use_sub = st.checkbox(f"{sub} 데이터 활성화", value=(sub == "외국인"), key=f"chk_active_{sub}")
         show_bar = st.checkbox("당일 순매수 바(Bar)", value=meta["default_bar"], key=f"chk_bar_{sub}")
         show_cum = st.checkbox("누적 수급선", value=meta["default_cum"], key=f"chk_cum_{sub}")
         show_ma5 = st.checkbox("5일 이동평균선", value=meta["default_ma5"], key=f"chk_ma5_{sub}")
         show_ma10 = st.checkbox("10일 이동평균선", value=meta["default_ma10"], key=f"chk_ma10_{sub}")
         show_ma20 = st.checkbox("20일 이동평균선", value=meta["default_ma20"], key=f"chk_ma20_{sub}")
         
+        is_active = show_bar or show_cum or show_ma5 or show_ma10 or show_ma20
+        
         subject_configs[sub] = {
-            "active": use_sub,
+            "active": is_active,
             "bar": show_bar,
             "cum": show_cum,
             "ma5": show_ma5,
             "ma10": show_ma10,
             "ma20": show_ma20,
-            "color": meta["color"]
+            "color": meta["color"],
+            "pos_bar": meta["pos_bar"],
+            "neg_bar": meta["neg_bar"]
         }
 
 subject_col_map = {
@@ -112,10 +127,10 @@ def draw_custom_multi_chart(df, label_name, configs):
         base_color = conf["color"]
         
         if conf["bar"]:
-            bar_colors = [base_color if val >= 0 else '#aec7e8' for val in series]
+            bar_colors = [conf["pos_bar"] if val >= 0 else conf["neg_bar"] for val in series]
             fig.add_trace(go.Bar(
                 x=df['Date'], y=series, marker_color=bar_colors,
-                name=f"{sub} 당일 순매수", opacity=0.35, width=24*3600*1000*0.6
+                name=f"{sub} 당일 순매수", opacity=0.5, width=24*3600*1000*0.6
             ), secondary_y=False)
             
         cum_series = series.cumsum()
@@ -232,7 +247,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.header(f"🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.info(f"사이드바에서 활성화된 대표 주체([{primary_subject}]) 기준으로 최초 순매수가 유입된 기업들입니다.")
+    st.info(f"사이드바에서 선택된 대표 주체([{primary_subject}]) 기준으로 최초 순매수가 유입된 기업들입니다.")
     if sprouts:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts, key="sprout_sel")
         s_ticker = selected_sprout.split("(")[-1].replace(")", "").strip()
