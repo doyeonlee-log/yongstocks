@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# [UI/UX 고도화] 탭 선택 디자인 개선 및 갤럭시(안드로이드) 체크박스 텍스트 잘림 현상 방지 수정
+# [UI/UX 고도화] 탭 선택 디자인 개선 및 갤럭시(안드로이드) 체크박스 텍스트 잘림/숨김 현상 완벽 해결 CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -35,19 +35,27 @@ st.markdown("""
         border-bottom: none;
     }
     
-    /* 선택된 탭 스타일 (거슬리는 주황색 배경 대신 상단 포인트 라인과 깔끔한 텍스트 강조) */
+    /* 선택된 탭 스타일 */
     .stTabs [aria-selected="true"] { 
         background-color: #ffffff !important; 
-        color: #0047AB !important; /* 선명한 블루 포인트 텍스트 */
-        border-top: 3px solid #0047AB !important; /* 상단 포인트 강조선 */
+        color: #0047AB !important; 
+        border-top: 3px solid #0047AB !important; 
         border-bottom: 2px solid #ffffff !important;
         font-weight: 700;
     }
 
     div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
     
-    /* 갤럭시(안드로이드 크롬) 등 모바일에서 체크박스 텍스트가 잘리거나 안 보이는 현상 완벽 방지 */
-    .stCheckbox label span {
+    /* =========================================================
+       [핵심 수정] 갤럭시(안드로이드 크롬) 체크박스 텍스트 가시성 확보
+       ========================================================= */
+    section[data-testid="stSidebar"] .stCheckbox p,
+    section[data-testid="stSidebar"] .stCheckbox label,
+    section[data-testid="stSidebar"] .stCheckbox span {
+        color: #333333 !important;
+        font-size: 14px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
         word-break: keep-all;
         white-space: normal !important;
     }
@@ -167,7 +175,7 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 모바일 터치 핀치 줌 및 잘림 현상 방지 최적화]
+# [차트 엔진]
 def draw_custom_multi_chart(df, label_name, configs):
     df = df.sort_values(by='Date').reset_index(drop=True)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -230,7 +238,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     )
     return fig
 
-# [분류 알고리즘: 새싹 로직을 '0에서 최초로 양수(첫 구매)가 유입되는 시점'으로 완벽 수정]
+# [분류 알고리즘: 새싹 로직 - 0에서 최초로 양수(첫 구매)가 유입되는 시점]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
@@ -256,15 +264,13 @@ def classify_stock_groups(subject_col):
         if matched_row.empty: continue
         stock_name = matched_row['종목명'].values[0]
         
-        # 1. 🌱 새싹 탭 로직 (0 또는 음수이던 상태에서 최초로 0을 돌파하여 양수(+) 순매수가 유입되는 최초 진입 순간)
+        # 1. 🌱 새싹 탭 로직 (과거 기록이 0 이하이다가 최근 5일 이내 최초로 양수 유입)
         history_before_recent = sub_series.iloc[:-5]
         recent_days = sub_series.iloc[-5:]
         
-        # 과거 기간 동안 순매수 기록이 없거나(0 이하), 최근 직전까지 유입이 없다가 최근 5일 내에 '최초로 0보다 큰 순매수'가 찍힌 경우
         is_sprout = (history_before_recent.max() <= 0) and (recent_days > 0).any()
             
         if is_sprout:
-            # 최근 5일 중 가장 마지막 날(또는 최근 일자)에 막 0을 넘겨 처음 구매가 들어온 경우 신규 표시(🌱)
             is_recent_5d = recent_days.iloc[-1] > 0 and (history_before_recent.max() <= 0 and sub_series.iloc[-6] <= 0 if len(sub_series) >= 6 else True)
             prefix = "🌱 " if is_recent_5d else ""
             sprout_list.append(f"{prefix}{stock_name} ({ticker})")
