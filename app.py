@@ -11,14 +11,8 @@ from streamlit_local_storage import LocalStorage
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 글로벌 옵션 설정
+# 2. 사이드바 - 글로벌 옵션 설정 (금액 옵션 제거 완료)
 st.sidebar.header("🛠️ 대시보드 설정")
-display_option = st.sidebar.radio(
-    "데이터 보기 방식 선택:",
-    ("수량 기준 (만 주)", "금액 기준 (억 원)")
-)
-
-# [추가] 분석할 투자 주체 선택 옵션
 target_subject = st.sidebar.selectbox(
     "분석할 투자 주체 선택:",
     ("외국인", "기관", "개인")
@@ -71,7 +65,6 @@ def get_clean_investor_data(ticker, start, end, subject_col):
                (df['Date'] <= pd.to_datetime(end))
         df_filtered = df.loc[mask].copy()
         
-        # 선택한 주체에 맞게 컬럼명 변경 ('일별지표'로 통일)
         if subject_col in df_filtered.columns:
             df_filtered['일별지표'] = df_filtered[subject_col]
         else:
@@ -88,7 +81,6 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     first_day_cum = df['누적지표'].iloc[0] if not df['누적지표'].empty else 0
     df['정렬영점누적'] = df['누적지표'] - first_day_cum
 
-    # [핵심] 누적 수급선을 기준으로 5일, 10일, 20일 이동평균선(MA) 계산
     df['MA_5'] = df['정렬영점누적'].rolling(window=5).mean()
     df['MA_10'] = df['정렬영점누적'].rolling(window=10).mean()
     df['MA_20'] = df['정렬영점누적'].rolling(window=20).mean()
@@ -96,13 +88,9 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
-    # 1. 당일 순매매 막대그래프
-    fig.add_trace(go.Bar(x=df['Date'], y=df['일별지표'], marker_color=colors, name=f"{subject_name} 당일 순매매", opacity=0.4), secondary_y=False)
-    
-    # 2. 누적 수급선 (초록색 실선)
+    fig.add_trace(go.Bar(x=df['Date'], y=df['일별지표'], marker_color=colors, name=f"{subject_name} 당일 순매수", opacity=0.4), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['정렬영점누적'], mode='lines', name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2)), secondary_y=True)
 
-    # 3. 이동평균선들 추가 (5일: 주황색, 10일: 보라색, 20일: 갈색/청색 등)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_5'], mode='lines', name="5일 이평선", line=dict(color='orange', width=1.2, dash='solid')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.2, dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.2, dash='dot')), secondary_y=True)
@@ -130,9 +118,9 @@ with tab1:
         
         if not df_daily.empty:
             fig = draw_pure_zero_start_chart(df_daily, selected_name, target_subject)
-            fig.update_layout(title=f"📊 {selected_name} [{target_subject}] 수급 흐름 및 이동평균선")
+            fig.update_layout(title=f"📊 {selected_name} [{target_subject}] 주식 수량 기준 수급 흐름 및 이동평균선")
             st.plotly_chart(fig, use_container_width=True)
-            st.metric(f"기간 내 {target_subject} 누적 증감량", f"{df_daily['일별지표'].sum():,.0f}")
+            st.metric(f"기간 내 {target_subject} 누적 증감량 (주)", f"{df_daily['일별지표'].sum():,.0f}")
         else:
             st.error("데이터가 없습니다. init_data.py를 먼저 실행해 주세요.")
 
