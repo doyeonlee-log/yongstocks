@@ -5,9 +5,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 import os
+from streamlit_local_storage import LocalStorage
 
-# 1. 페이지 기본 설정
+# 1. 페이지 기본 설정 및 로컬 스토리지 초기화
 st.set_page_config(page_title="새싹발굴하기", layout="wide")
+local_storage = LocalStorage()
 
 # 2. 사이드바 - 글로벌 옵션 설정
 st.sidebar.header("🛠️ 대시보드 설정")
@@ -39,11 +41,20 @@ stock_df = load_stock_list()
 stock_df['티커'] = stock_df['티커'].astype(str).str.zfill(6)
 stock_df['선택용_이름'] = stock_df['종목명'] + " (" + stock_df['티커'] + ")"
 
-tab1, tab2, tab3, tab4 = st.tabs([
+# 즐겨찾기 목록 로컬 스토리지 동기화
+saved_favs = local_storage.getItem("my_sprout_favorites")
+if saved_favs is None:
+    default_favs = [stock_df['선택용_이름'].iloc[100], stock_df['선택용_이름'].iloc[120]] if len(stock_df) > 130 else []
+else:
+    default_favs = [x.strip() for x in saved_favs.split(",") if x.strip() in stock_df['선택용_이름'].values]
+
+# 탭 5개 구성 (즐겨찾기를 맨 뒤로 배치)
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔎 개별 종목 분석", 
     "🌱 새싹 발굴", 
     "🚀 희망 종목", 
-    "⚠️ 정리 종목"
+    "⚠️ 정리 종목",
+    "⭐ 나의 새싹 즐겨찾기"
 ])
 
 # [데이터 엔진: 3대 주체 CSV 읽기 지원]
@@ -68,7 +79,7 @@ def get_clean_investor_data(ticker, start, end, subject_col):
     except Exception as e:
         return pd.DataFrame()
 
-# [차트 엔진: 막대 두께(width)를 도톰하게 개선]
+# [차트 엔진: 막대 두께(width) 보정 및 다중 지표 표현]
 def draw_pure_zero_start_chart(df, label_name, subject_name):
     df = df.sort_values(by='Date').reset_index(drop=True)
     df['누적지표'] = df['일별지표'].cumsum()
@@ -82,22 +93,19 @@ def draw_pure_zero_start_chart(df, label_name, subject_name):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     colors = ['red' if val >= 0 else 'blue' for val in df['일별지표']]
 
-    # 1. 당일 순매수 막대그래프 (width 속성을 주어 얇은 선처럼 보이는 현상 방지)
     fig.add_trace(go.Bar(
         x=df['Date'], y=df['일별지표'], 
         marker_color=colors, 
         name=f"{subject_name} 당일 순매수", 
         opacity=0.5,
-        width=24 * 3600 * 1000 * 0.7  # 날짜 간격 대비 70% 두께로 묵직하게 설정
+        width=24 * 3600 * 1000 * 0.7
     ), secondary_y=False)
 
-    # 2. 누적 수급선
     fig.add_trace(go.Scatter(
         x=df['Date'], y=df['정렬영점누적'], mode='lines', 
         name=f"{subject_name} 누적 수급선", line=dict(color='#2CA02C', width=2.5)
     ), secondary_y=True)
 
-    # 3. 이동평균선들
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_5'], mode='lines', name="5일 이평선", line=dict(color='orange', width=1.5, dash='solid')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_10'], mode='lines', name="10일 이평선", line=dict(color='purple', width=1.5, dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], mode='lines', name="20일 이평선", line=dict(color='deeppink', width=1.5, dash='dot')), secondary_y=True)
@@ -243,3 +251,25 @@ with tab4:
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("현재 조건에 부합하는 정리 대상 종목이 없습니다.")
+
+# ==========================================
+# ⭐ 탭 5: 나의 새싹 즐겨찾기 (맨 뒤 배치 완료)
+# ==========================================
+with tab5:
+    st.header(f"⭐ 나의 관심 새싹 즐겨찾기 [{target_subject}] 수급 추세 레이더")
+    favorite_stocks = st.multiselect("📌 즐겨찾기 종목 선택:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
+    
+    if favorite_stocks:
+        local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
+        
+        for stock_name in favorite_stocks:
+            ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
+            name = stock_df[stock_df['선택용_이름'] == stock_name]['종목명'].values[0]
+            df_fav = get_clean_investor_data(ticker, datetime.date(2026, 1, 1), datetime.date.today(), col_name)
+            
+            if not df_fav.empty:
+                fig = draw_pure_zero_start_chart(df_fav, name, target_subject)
+                fig.update_layout(title=f"📈 {name} [{target_subject}] 수급 및 이동평균선", height=400)
+                st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
