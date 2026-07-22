@@ -335,7 +335,7 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # ==========================================
 with tab2:
     st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 최근 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hot-badge">💡 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
     
     col_s1, col_s2 = st.columns([2, 2])
     with col_s1:
