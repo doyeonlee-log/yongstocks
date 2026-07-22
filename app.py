@@ -361,7 +361,7 @@ with tab2:
 # ==========================================
 with tab3:
     st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 전 5일 대비 금번 5일 수급 증가율이 20% 이상인 종목들입니다. (🔥 표시는 최근 5일 내 신규 진입)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 증가율이 20% 이상인 종목들입니다. (🔥 표시는 최근 5일 내 신규 진입)</div>', unsafe_allow_html=True)
     
     col_h1, col_h2 = st.columns([2, 2])
     with col_h1:
@@ -387,7 +387,7 @@ with tab3:
 # ==========================================
 with tab4:
     st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 전 5일 대비 금번 5일 수급 하락률이 10%를 초과하는 종목들입니다. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
     
     col_c1, col_c2 = st.columns([2, 2])
     with col_c1:
