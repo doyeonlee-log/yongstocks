@@ -285,7 +285,7 @@ def classify_stock_groups(subject_col):
         # 3. 🚨 정리 탭 로직
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
-            if drop_rate > 10:
+            if drop_rate > 10 and drop_rate <= 30:
                 prev_drop_rate = (prev_prev_5 - prev_5) / abs(prev_prev_5) * 100 if prev_prev_5 != 0 else 0
                 is_recent_warning = (drop_rate > 10 and prev_drop_rate <= 10)
                 prefix = "🚨 " if is_recent_warning else ""
@@ -387,7 +387,7 @@ with tab3:
 # ==========================================
 with tab4:
     st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. 30% 이상은 리스트에서 제거. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
     
     col_c1, col_c2 = st.columns([2, 2])
     with col_c1:
