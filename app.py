@@ -17,6 +17,14 @@ st.set_page_config(
 # [UI/UX 고도화] 탭 선택 디자인 개선 및 갤럭시(안드로이드) 체크박스 텍스트 잘림/숨김 현상 완벽 해결 CSS
 st.markdown("""
     <style>
+    /* 모바일 환경에서 줌인/줌아웃(Pinch-to-zoom) 및 자유로운 확대가 가능하도록 뷰포트 강제 허용 */
+    @viewport {
+        width: device-width;
+        zoom: 1.0;
+        min-zoom: 0.5;
+        max-zoom: 5.0;
+        user-zoom: fixed;
+    }
     .main { background-color: #f8f9fa; }
     
     /* 탭 전체 영역 간격 */
@@ -86,6 +94,23 @@ st.markdown("""
     
     </style>
 """, unsafe_allow_html=True)
+
+# 모바일 브라우저에서 핀치 투 줌(Pinch-to-zoom) 및 확대/축소 제약 해제를 위한 HTML 메타 태그 주입
+st.markdown(
+    """
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    </head>
+    <script>
+        // 모바일 터치 액션 및 줌 제한 강제 해제 스크립트
+        const metaViewport = document.querySelector('meta[name=viewport]');
+        if (metaViewport) {
+            metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
+        }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
 
 local_storage = LocalStorage()
 
