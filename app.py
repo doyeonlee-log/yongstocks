@@ -14,16 +14,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🔥 [모바일 줌 기능 활성화] 
-# Streamlit 기본 뷰포트 설정을 덮어써서 두 손가락 줌인/아웃(Pinch-to-zoom)을 강제로 허용합니다.
+# 2. 🔥 [모바일 줌 완벽 잠금 해제] 
+# 메타 태그 수정뿐만 아니라, Streamlit 프레임워크가 모바일 터치 확대를 차단하는 이벤트를 강제로 가로챕니다.
 st.components.v1.html(
     """
     <script>
+        // 1) 최상위 부모 창(parent)의 뷰포트 메타 태그 강제 변경
         const meta = parent.document.getElementsByTagName('meta')['viewport'];
         if (meta) {
-            // maximum-scale을 높이고 user-scalable을 yes로 변경
             meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes';
         }
+
+        // 2) iOS 및 안드로이드 브라우저가 두 손가락 터치(핀치)할 때 확대를 막는 메커니즘을 강제로 해제
+        parent.document.addEventListener('touchstart', function (event) {
+            if (event.touches.length > 1) {
+                // 부모 창에서 다른 스크립트가 줌을 차단(preventDefault)하지 못하도록 이벤트를 전파시킵니다.
+                event.stopPropagation();
+            }
+        }, { passive: true });
+
+        parent.document.addEventListener('touchmove', function (event) {
+            if (event.touches.length > 1) {
+                event.stopPropagation();
+            }
+        }, { passive: true });
     </script>
     """,
     height=0,
