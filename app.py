@@ -80,8 +80,9 @@ st.sidebar.markdown("---")
 subject_configs = {}
 subjects_meta = {
     "외국인": {
-        "color": "#FF7F0E", 
-        "pos_bar": "#FF4500", "neg_bar": "#FFD700", 
+        "color": "#FF0000",       # 기존 "#FF7F0E" (오렌지색) -> 빨간색("#FF0000" 또는 "#DC143C" 등)으로 변경
+        "pos_bar": "#FF0000",     # 기존 "#FF4500" -> 빨간색 계열로 변경
+        "neg_bar": "#FFA07A",     # 기존 "#FFD700" -> 연한 빨강 또는 연한 톤으로 변경 (원하시는 색상 코드 입력)
         "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
     },
     "기관": {
