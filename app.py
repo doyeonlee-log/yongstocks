@@ -14,30 +14,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. 🔥 [모바일 줌 완벽 잠금 해제] 
-# 메타 태그 수정뿐만 아니라, Streamlit 프레임워크가 모바일 터치 확대를 차단하는 이벤트를 강제로 가로챕니다.
+# 2. 🔥 [모바일 줌 완전 정복] 
+# 상위 부모창, 현재 창, 내부 프레임까지 존재하는 모든 '확대 방지 메커니즘'을 강제로 무력화합니다.
 st.components.v1.html(
     """
     <script>
-        // 1) 최상위 부모 창(parent)의 뷰포트 메타 태그 강제 변경
-        const meta = parent.document.getElementsByTagName('meta')['viewport'];
-        if (meta) {
-            meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes';
+        function forceAllowZoom() {
+            // 1. 유저가 접근 가능한 모든 window 객체 수집 (부모 창, 현재 창 등)
+            const targets = [window, parent, window.top];
+            
+            targets.forEach(tgt => {
+                try {
+                    if (!tgt) return;
+                    
+                    // 2. 존재하는 모든 뷰포트 메타 태그를 찾아 줌 가능 상태로 강제 변경
+                    const metas = tgt.document.querySelectorAll('meta[name="viewport"]');
+                    metas.forEach(meta => {
+                        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes');
+                    });
+                    
+                    // 3. Streamlit 프레임워크가 모바일 터치(두 손가락 핀치)를 가로채지 못하도록 
+                    // 캡처링 단계(true)에서 이벤트를 선점하여 무조건 브라우저 순정 기능으로 연결합니다.
+                    const cancelPrevent = function(e) {
+                        if (e.touches && e.touches.length > 1) {
+                            // Streamlit 내부의 event.preventDefault() 호출을 강제로 차단하고 이벤트를 통과시킵니다.
+                            e.stopPropagation();
+                        }
+                    };
+                    
+                    tgt.document.addEventListener('touchstart', cancelPrevent, { passive: true, capture: true });
+                    tgt.document.addEventListener('touchmove', cancelPrevent, { passive: true, capture: true });
+                    
+                } catch (e) {
+                    // 크로스 도메인 이슈 방지용 예외 처리
+                    console.log("Zoom inject passive block bypass");
+                }
+            });
         }
 
-        // 2) iOS 및 안드로이드 브라우저가 두 손가락 터치(핀치)할 때 확대를 막는 메커니즘을 강제로 해제
-        parent.document.addEventListener('touchstart', function (event) {
-            if (event.touches.length > 1) {
-                // 부모 창에서 다른 스크립트가 줌을 차단(preventDefault)하지 못하도록 이벤트를 전파시킵니다.
-                event.stopPropagation();
-            }
-        }, { passive: true });
-
-        parent.document.addEventListener('touchmove', function (event) {
-            if (event.touches.length > 1) {
-                event.stopPropagation();
-            }
-        }, { passive: true });
+        # 4. Streamlit 컴포넌트가 완전히 로드된 후 즉시 실행 및 안정화를 위해 0.5초 뒤 한번 더 강제 실행
+        forceAllowZoom();
+        setTimeout(forceAllowZoom, 500);
     </script>
     """,
     height=0,
