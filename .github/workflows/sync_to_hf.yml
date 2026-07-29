@@ -1,0 +1,21 @@
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [main] # 메인 브랜치에 데이터나 코드가 업데이트될 때마다 자동 작동!
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push to Hugging Face Hub
+        uses: huggingface/git-action@v1
+        with:
+          my_token: ${{ secrets.HF_TOKEN }}
+          username: 'doyeonlee-log'
+          space: 'yongstocks'
+          branch: 'main'
+          force: true
