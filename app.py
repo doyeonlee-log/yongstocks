@@ -7,41 +7,20 @@ import datetime
 import os
 from streamlit_local_storage import LocalStorage
 
-# 1. 페이지 기본 설정 및 레이아웃 최적화
+# 1. 페이지 기본 설정 및 레이아웃 최적화 (⚠️ 중복 제거하여 딱 한 번만 선언)
 st.set_page_config(
     page_title="새싹발굴하기 - Pro Dashboard", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-import streamlit as st
-import pandas as pd
-import FinanceDataReader as fdr
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import datetime
-import os
-from streamlit_local_storage import LocalStorage
-
-# 1. 페이지 기본 설정 및 레이아웃 최적화
-st.set_page_config(
-    page_title="새싹발굴하기 - Pro Dashboard", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# 💡 [보안 우회형 모바일 줌 해결] 기존 자바스크립트 코드는 삭제하고, 
-# 아래 CSS 내부에 모바일 전용 터치 확대 제어 코드를 직접 심어 관리합니다.
+# 💡 디자인 및 갤럭시 가독성 개선 스타일 시트
 st.markdown("""
     <style>
-    /* ================================================================= */
-    /* 🔥 [핵심 추가] 모바일 브라우저의 터치 드래그 및 핀치 줌을 강제로 활성화 */
-    /* ================================================================= */
     html, body, .stApp {
-        touch-action: pan-x pan-y !important; /* 브라우저 순정 확대 이동 허용 */
+        touch-action: pan-x pan-y pinch-zoom !important;
         -webkit-overflow-scrolling: touch !important;
     }
-    
     .main { background-color: #f8f9fa; }
     
     /* 탭 전체 영역 간격 */
@@ -86,29 +65,44 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 2. 로컬 스토리지 정의
 local_storage = LocalStorage()
 
-# 2. 사이드바 - 제어판
+# 3. 사이드바 - 제어판
 st.sidebar.header("🛠️ 대시보드 제어판")
 st.sidebar.markdown("---")
 
 subject_configs = {}
 subjects_meta = {
     "외국인": {
-        "color": "#FF0000",       # 기존 "#FF7F0E" (오렌지색) -> 빨간색("#FF0000" 또는 "#DC143C" 등)으로 변경
-        "pos_bar": "#FF0000",     # 기존 "#FF4500" -> 빨간색 계열로 변경
-        "neg_bar": "#FFA07A",     # 기존 "#FFD700" -> 연한 빨강 또는 연한 톤으로 변경 (원하시는 색상 코드 입력)
-        "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
+        "color": "#FF0000", 
+        "pos_bar": "#FF0000", 
+        "neg_bar": "#FFA07A", 
+        "default_bar": True,
+        "default_cum": True,
+        "default_ma5": True,
+        "default_ma10": False,
+        "default_ma20": False
     },
     "기관": {
-        "color": "#1F77B4", 
-        "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE", 
-        "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False
+        "color": "#1F77B4",
+        "pos_bar": "#1E90FF",
+        "neg_bar": "#B0C4DE",
+        "default_bar": False,
+        "default_cum": True,
+        "default_ma5": False,
+        "default_ma10": False,
+        "default_ma20": False
     },
     "개인": {
-        "color": "#2CA02C", 
-        "pos_bar": "#32CD32", "neg_bar": "#8FBC8F", 
-        "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False
+        "color": "#2CA02C",
+        "pos_bar": "#32CD32",
+        "neg_bar": "#8FBC8F",
+        "default_bar": False,
+        "default_cum": False,
+        "default_ma5": False,
+        "default_ma10": False,
+        "default_ma20": False
     }
 }
 
