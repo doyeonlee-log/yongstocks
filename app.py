@@ -334,8 +334,8 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # 🌱 탭 2: 새싹 발굴
 # ==========================================
 with tab2:
-    st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
+    #st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
+    #st.markdown('<div class="hot-badge">💡 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
     
     col_s1, col_s2 = st.columns([2, 2])
     with col_s1:
@@ -360,8 +360,8 @@ with tab2:
 # 🚀 탭 3: 희망 종목
 # ==========================================
 with tab3:
-    st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 증가율이 20% 이상인 종목들입니다. (🔥 표시는 최근 5일 내 신규 진입)</div>', unsafe_allow_html=True)
+    #st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
+    #st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 증가율이 20% 이상인 종목들입니다. (🔥 표시는 최근 5일 내 신규 진입)</div>', unsafe_allow_html=True)
     
     col_h1, col_h2 = st.columns([2, 2])
     with col_h1:
@@ -386,8 +386,8 @@ with tab3:
 # 🚨 탭 4: 정리 종목
 # ==========================================
 with tab4:
-    st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
-    st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. 30% 이상은 리스트에서 제거. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
+    #st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
+    #st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. 30% 이상은 리스트에서 제거. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
     
     col_c1, col_c2 = st.columns([2, 2])
     with col_c1:
@@ -412,7 +412,7 @@ with tab4:
 # ⭐ 탭 5: 나의 새싹 즐겨찾기
 # ==========================================
 with tab5:
-    st.markdown(f"### ⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
+    #st.markdown(f"### ⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
     
     col_f1, col_f2 = st.columns([2, 2])
     with col_f1:
