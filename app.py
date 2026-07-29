@@ -68,7 +68,22 @@ st.markdown("""
         margin-bottom: 15px;
     }
     h1, h2, h3 { font-family: 'Helvetica Neue', sans-serif; letter-spacing: -0.5px; }
-   
+
+    /* [모바일 레이아웃 방어] 항목이 늘어나도 글씨가 겹치지 않고 아래로 밀려나며 공간을 차지하도록 설정 */
+    section[data-testid="stSidebar"] .element-container,
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        display: flex;
+        flex-direction: column;
+        gap: 6px; /* 항목 간 간격을 확실히 띄워줌 */
+    }
+
+    section[data-testid="stSidebar"] .stCheckbox {
+        position: relative;
+        width: 100%;
+        min-height: 32px;
+        margin-bottom: 4px;
+    }
+    
     </style>
 """, unsafe_allow_html=True)
 
@@ -233,7 +248,7 @@ def draw_custom_multi_chart(df, label_name, configs):
         template="plotly_white", height=500, hovermode="x unified", 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=f"📈 {label_name} ",
-        dragmode="pan",          
+        dragmode="zoom",          # 모바일 핀치줌/확대 제스처 최적화
         uirevision="constant"    
     )
     return fig
@@ -326,7 +341,7 @@ with tab1:
         
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
 
@@ -352,7 +367,7 @@ with tab2:
         df_sprout = get_all_investor_data(s_ticker, date_range_2[0], date_range_2[1])
         if not df_sprout.empty:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -378,7 +393,7 @@ with tab3:
         df_hope = get_all_investor_data(h_ticker, date_range_3[0], date_range_3[1])
         if not df_hope.empty:
             fig = draw_custom_multi_chart(df_hope, h_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -404,7 +419,7 @@ with tab4:
         df_clean = get_all_investor_data(c_ticker, date_range_4[0], date_range_4[1])
         if not df_clean.empty:
             fig = draw_custom_multi_chart(df_clean, c_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -432,6 +447,6 @@ with tab5:
             
             if not df_fav.empty:
                 fig = draw_custom_multi_chart(df_fav, name, subject_configs)
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}", config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
     else:
         st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
