@@ -91,6 +91,7 @@ local_storage = LocalStorage()
 
 # 2. 사이드바 - 제어판
 st.sidebar.header("🛠️ 대시보드 제어판")
+mobile_mode = st.sidebar.checkbox("📱 모바일 모드 (핀치줌 대신 슬라이더)", value=False, key="mobile_mode")
 st.sidebar.markdown("---")
 
 subject_configs = {}
@@ -244,13 +245,27 @@ def draw_custom_multi_chart(df, label_name, configs):
                 name=f"{sub} 20일 이평선", line=dict(color=base_color, width=1.5, dash='dot')
             ), secondary_y=True)
 
-    fig.update_layout(
-        template="plotly_white", height=500, hovermode="x unified", 
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=f"📈 {label_name} ",
-        dragmode="pan",          # 크롭 현상을 없애고 부드러운 스크롤/이동이 되도록 원래의 pan 모드로 복원
-        uirevision="constant"    
-    )
+if mobile_mode:
+        # 모바일: plotly가 터치를 안 잡아먹게 함 → 페이지 핀치줌 살아남
+        # 차트 기간 조절은 하단 레인지슬라이더로
+        fig.update_layout(
+            template="plotly_white", height=450,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            title=f"📈 {label_name} ",
+            hovermode=False,
+            dragmode=False,
+            uirevision="constant"
+        )
+        fig.update_xaxes(rangeslider=dict(visible=True, thickness=0.08))
+    else:
+        # PC: 기존 그대로
+        fig.update_layout(
+            template="plotly_white", height=500, hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            title=f"📈 {label_name} ",
+            dragmode="pan",
+            uirevision="constant"
+        )
     return fig
 
 # [분류 알고리즘: 새싹 로직 - 과거에 순매수 기록이 아예 없거나 0이던 상태에서 최초로 0을 넘어 양수(+) 유입이 발생하는 순간]
