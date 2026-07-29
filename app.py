@@ -14,6 +14,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 🔥 [모바일 줌 기능 활성화] 
+# Streamlit 기본 뷰포트 설정을 덮어써서 두 손가락 줌인/아웃(Pinch-to-zoom)을 강제로 허용합니다.
+st.components.v1.html(
+    """
+    <script>
+        const meta = parent.document.getElementsByTagName('meta')['viewport'];
+        if (meta) {
+            // maximum-scale을 높이고 user-scalable을 yes로 변경
+            meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes';
+        }
+    </script>
+    """,
+    height=0,
+    width=0
+)
+
 # [UI/UX 고도화] 탭 선택 디자인 개선 및 갤럭시(안드로이드) 체크박스 텍스트 잘림/숨김 현상 완벽 해결 CSS
 st.markdown("""
     <style>
