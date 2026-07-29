@@ -94,6 +94,13 @@ st.sidebar.header("🛠️ 대시보드 제어판")
 mobile_mode = st.sidebar.checkbox("📱 모바일 모드 (핀치줌 대신 슬라이더)", value=False, key="mobile_mode")
 st.sidebar.markdown("---")
 
+# 모바일 모드일 때는 plotly가 터치를 안 잡아먹게 하여 페이지 핀치줌을 살림
+chart_config = (
+    {"scrollZoom": False, "displayModeBar": False, "responsive": True}
+    if mobile_mode
+    else {"scrollZoom": True, "displayModeBar": False, "responsive": True}
+)
+
 subject_configs = {}
 subjects_meta = {
     "외국인": {
@@ -245,9 +252,8 @@ def draw_custom_multi_chart(df, label_name, configs):
                 name=f"{sub} 20일 이평선", line=dict(color=base_color, width=1.5, dash='dot')
             ), secondary_y=True)
 
-if mobile_mode:
-        # 모바일: plotly가 터치를 안 잡아먹게 함 → 페이지 핀치줌 살아남
-        # 차트 기간 조절은 하단 레인지슬라이더로
+    if mobile_mode:
+        # 모바일: plotly가 터치를 안 잡아먹게 함 → 페이지 핀치줌 살아남 / 기간 조절은 하단 슬라이더로
         fig.update_layout(
             template="plotly_white", height=450,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -258,13 +264,12 @@ if mobile_mode:
         )
         fig.update_xaxes(rangeslider=dict(visible=True, thickness=0.08))
     else:
-        # PC: 기존 그대로
         fig.update_layout(
-            template="plotly_white", height=500, hovermode="x unified",
+            template="plotly_white", height=500, hovermode="x unified", 
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             title=f"📈 {label_name} ",
-            dragmode="pan",
-            uirevision="constant"
+            dragmode="pan",          # 크롭 현상을 없애고 부드러운 스크롤/이동이 되도록 원래의 pan 모드로 복원
+            uirevision="constant"    
         )
     return fig
 
@@ -356,7 +361,7 @@ with tab1:
         
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
+            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config=chart_config)
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
 
@@ -382,7 +387,7 @@ with tab2:
         df_sprout = get_all_investor_data(s_ticker, date_range_2[0], date_range_2[1])
         if not df_sprout.empty:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout", config=chart_config)
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -408,7 +413,7 @@ with tab3:
         df_hope = get_all_investor_data(h_ticker, date_range_3[0], date_range_3[1])
         if not df_hope.empty:
             fig = draw_custom_multi_chart(df_hope, h_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope", config=chart_config)
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -434,7 +439,7 @@ with tab4:
         df_clean = get_all_investor_data(c_ticker, date_range_4[0], date_range_4[1])
         if not df_clean.empty:
             fig = draw_custom_multi_chart(df_clean, c_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean", config=chart_config)
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -462,6 +467,6 @@ with tab5:
             
             if not df_fav.empty:
                 fig = draw_custom_multi_chart(df_fav, name, subject_configs)
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}", config=chart_config)
     else:
         st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
