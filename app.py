@@ -9,7 +9,7 @@ from streamlit_local_storage import LocalStorage
 
 # 1. 페이지 기본 설정 및 레이아웃 최적화
 st.set_page_config(
-    page_title="새싹발굴하기 - Pro Dashboard",
+    page_title="새싹발굴하기 - Pro Dashboard", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -18,10 +18,10 @@ st.set_page_config(
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-
+    
     /* 탭 전체 영역 간격 */
     .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 2px solid #e9ecef; }
-
+    
     /* 개별 탭 기본 스타일 */
     .stTabs [data-baseweb="tab"] { 
         height: 48px; 
@@ -34,7 +34,7 @@ st.markdown("""
         border: 1px solid #dee2e6;
         border-bottom: none;
     }
-
+    
     /* 선택된 탭 스타일 */
     .stTabs [aria-selected="true"] { 
         background-color: #ffffff !important; 
@@ -45,7 +45,7 @@ st.markdown("""
     }
 
     div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
-
+    
     /* 갤럭시(안드로이드 크롬) 등 모바일에서 체크박스 텍스트가 잘리거나 안 보이는 현상 완벽 방지 */
     section[data-testid="stSidebar"] .stCheckbox p,
     section[data-testid="stSidebar"] .stCheckbox label,
@@ -57,7 +57,7 @@ st.markdown("""
         word-break: keep-all;
         white-space: normal !important;
     }
-
+    
     .hot-badge {
         background-color: #fff3cd;
         border: 1px solid #ffeeba;
@@ -83,7 +83,7 @@ st.markdown("""
         min-height: 32px;
         margin-bottom: 4px;
     }
-
+    
     </style>
 """, unsafe_allow_html=True)
 
@@ -96,19 +96,19 @@ st.sidebar.markdown("---")
 subject_configs = {}
 subjects_meta = {
     "외국인": {
-        "color": "#FF0000",  # 기존 "#FF7F0E" (오렌지색) -> 빨간색("#FF0000" 또는 "#DC143C" 등)으로 변경
-        "pos_bar": "#FF0000",  # 기존 "#FF4500" -> 빨간색 계열로 변경
-        "neg_bar": "#FFA07A",  # 기존 "#FFD700" -> 연한 빨강 또는 연한 톤으로 변경 (원하시는 색상 코드 입력)
+        "color": "#FF0000",       # 기존 "#FF7F0E" (오렌지색) -> 빨간색("#FF0000" 또는 "#DC143C" 등)으로 변경
+        "pos_bar": "#FF0000",     # 기존 "#FF4500" -> 빨간색 계열로 변경
+        "neg_bar": "#FFA07A",     # 기존 "#FFD700" -> 연한 빨강 또는 연한 톤으로 변경 (원하시는 색상 코드 입력)
         "default_bar": True, "default_cum": True, "default_ma5": True, "default_ma10": False, "default_ma20": False
     },
     "기관": {
-        "color": "#1F77B4",
-        "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE",
+        "color": "#1F77B4", 
+        "pos_bar": "#1E90FF", "neg_bar": "#B0C4DE", 
         "default_bar": False, "default_cum": True, "default_ma5": False, "default_ma10": False, "default_ma20": False
     },
     "개인": {
-        "color": "#2CA02C",
-        "pos_bar": "#32CD32", "neg_bar": "#8FBC8F",
+        "color": "#2CA02C", 
+        "pos_bar": "#32CD32", "neg_bar": "#8FBC8F", 
         "default_bar": False, "default_cum": False, "default_ma5": False, "default_ma10": False, "default_ma20": False
     }
 }
@@ -120,9 +120,9 @@ for sub, meta in subjects_meta.items():
         show_ma5 = st.checkbox("5일 이동평균선", value=meta["default_ma5"], key=f"chk_ma5_{sub}")
         show_ma10 = st.checkbox("10일 이동평균선", value=meta["default_ma10"], key=f"chk_ma10_{sub}")
         show_ma20 = st.checkbox("20일 이동평균선", value=meta["default_ma20"], key=f"chk_ma20_{sub}")
-
+        
         is_active = show_bar or show_cum or show_ma5 or show_ma10 or show_ma20
-
+        
         subject_configs[sub] = {
             "active": is_active,
             "bar": show_bar,
@@ -141,7 +141,6 @@ subject_col_map = {
     "개인": "Individual"
 }
 
-
 # 3. 상장 종목 리스트 불러오기
 @st.cache_data
 def load_stock_list():
@@ -154,7 +153,6 @@ def load_stock_list():
         if not os.path.exists("data"): os.makedirs("data")
         df_filtered.to_csv("data/stock_list.csv", index=False)
         return df_filtered
-
 
 stock_df = load_stock_list()
 stock_df['티커'] = stock_df['티커'].astype(str).str.zfill(6)
@@ -169,13 +167,12 @@ else:
 
 # 탭 5개 구성
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🔎 개별 종목 분석",
-    "🌱 새싹 발굴",
-    "🚀 희망 종목",
+    "🔎 개별 종목 분석", 
+    "🌱 새싹 발굴", 
+    "🚀 희망 종목", 
     "🚨 정리 종목",
     "⭐ 나의 새싹 즐겨찾기"
 ])
-
 
 # [데이터 엔진]
 @st.cache_data(ttl=3600)
@@ -184,7 +181,7 @@ def get_all_investor_data(ticker, start, end):
         df = pd.read_csv("data/investor_data.csv", dtype={'Ticker': str})
         df['Date'] = pd.to_datetime(df['Date'])
         df['Ticker'] = df['Ticker'].astype(str).str.zfill(6)
-
+        
         mask = (df['Ticker'] == ticker.zfill(6)) & \
                (df['Date'] >= pd.to_datetime(start)) & \
                (df['Date'] <= pd.to_datetime(end))
@@ -193,54 +190,53 @@ def get_all_investor_data(ticker, start, end):
     except Exception as e:
         return pd.DataFrame()
 
-
 # [차트 엔진]
 def draw_custom_multi_chart(df, label_name, configs):
     df = df.sort_values(by='Date').reset_index(drop=True)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-
+    
     for sub, conf in configs.items():
         if not conf["active"]:
             continue
-
+            
         col_name = subject_col_map[sub]
         if col_name not in df.columns:
             continue
-
+            
         series = df[col_name].fillna(0)
         base_color = conf["color"]
-
+        
         if conf["bar"]:
             bar_colors = [conf["pos_bar"] if val >= 0 else conf["neg_bar"] for val in series]
             fig.add_trace(go.Bar(
                 x=df['Date'], y=series, marker_color=bar_colors,
-                name=f"{sub} 당일 순매수", opacity=0.5, width=24 * 3600 * 1000 * 0.6
+                name=f"{sub} 당일 순매수", opacity=0.5, width=24*3600*1000*0.6
             ), secondary_y=False)
-
+            
         cum_series = series.cumsum()
         first_val = cum_series.iloc[0] if not cum_series.empty else 0
         aligned_cum = cum_series - first_val
-
+        
         if conf["cum"]:
             fig.add_trace(go.Scatter(
                 x=df['Date'], y=aligned_cum, mode='lines',
                 name=f"{sub} 누적 수급선", line=dict(color=base_color, width=2.5, dash='solid')
             ), secondary_y=True)
-
+            
         if conf["ma5"]:
             ma_5 = aligned_cum.rolling(window=5).mean()
             fig.add_trace(go.Scatter(
                 x=df['Date'], y=ma_5, mode='lines',
                 name=f"{sub} 5일 이평선", line=dict(color=base_color, width=1.5, dash='solid')
             ), secondary_y=True)
-
+            
         if conf["ma10"]:
             ma_10 = aligned_cum.rolling(window=10).mean()
             fig.add_trace(go.Scatter(
                 x=df['Date'], y=ma_10, mode='lines',
                 name=f"{sub} 10일 이평선", line=dict(color=base_color, width=1.5, dash='dash')
             ), secondary_y=True)
-
+            
         if conf["ma20"]:
             ma_20 = aligned_cum.rolling(window=20).mean()
             fig.add_trace(go.Scatter(
@@ -249,53 +245,51 @@ def draw_custom_multi_chart(df, label_name, configs):
             ), secondary_y=True)
 
     fig.update_layout(
-        template="plotly_white", height=500, hovermode="x unified",
+        template="plotly_white", height=500, hovermode="x unified", 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=f"📈 {label_name} ",
-        dragmode="pan",
-        uirevision="constant"
+        dragmode="pan",          # 크롭 현상을 없애고 부드러운 스크롤/이동이 되도록 원래의 pan 모드로 복원
+        uirevision="constant"    
     )
     return fig
-
 
 # [분류 알고리즘: 새싹 로직 - 과거에 순매수 기록이 아예 없거나 0이던 상태에서 최초로 0을 넘어 양수(+) 유입이 발생하는 순간]
 @st.cache_data(ttl=3600)
 def classify_stock_groups(subject_col):
     if not os.path.exists("data/investor_data.csv"):
         return [], [], []
-
+    
     df_all = pd.read_csv("data/investor_data.csv", dtype={'Ticker': str})
     df_all['Date'] = pd.to_datetime(df_all['Date'])
     df_all['Ticker'] = df_all['Ticker'].astype(str).str.zfill(6)
-
+    
     sprout_list, hope_list, clean_list = [], [], []
     grouped = df_all.groupby('Ticker')
-
+    
     for ticker, group in grouped:
         group = group.sort_values('Date')
         if len(group) < 15: continue
-
+            
         sub_series = group[subject_col].fillna(0)
         recent_5 = sub_series.iloc[-5:].sum()
         prev_5 = sub_series.iloc[-10:-5].sum()
         prev_prev_5 = sub_series.iloc[-15:-10].sum()
-
+        
         matched_row = stock_df[stock_df['티커'] == ticker]
         if matched_row.empty: continue
         stock_name = matched_row['종목명'].values[0]
-
+        
         # 1. 🌱 새싹 탭 로직 (과거 최대값이 정확히 0이거나 그 이하였고, 최근 5일 내에 최초로 0 초과 양수 유입 발생)
         history_before_recent = sub_series.iloc[:-5]
         recent_days = sub_series.iloc[-5:]
-
+        
         is_sprout = (history_before_recent.max() == 0) and (recent_days > 0).any()
-
+            
         if is_sprout:
-            is_recent_5d = recent_days.iloc[-1] > 0 and (
-                history_before_recent.max() == 0 and sub_series.iloc[-6] == 0 if len(sub_series) >= 6 else True)
+            is_recent_5d = recent_days.iloc[-1] > 0 and (history_before_recent.max() == 0 and sub_series.iloc[-6] == 0 if len(sub_series) >= 6 else True)
             prefix = "🌱 " if is_recent_5d else ""
             sprout_list.append(f"{prefix}{stock_name} ({ticker})")
-
+            
         # 2. 🚀 희망 탭 로직
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
@@ -313,29 +307,25 @@ def classify_stock_groups(subject_col):
                 is_recent_warning = (drop_rate > 10 and prev_drop_rate <= 10)
                 prefix = "🚨 " if is_recent_warning else ""
                 clean_list.append(f"{prefix}{stock_name} ({ticker})")
-
+            
     return sprout_list, hope_list, clean_list
-
 
 active_subs = [s for s, c in subject_configs.items() if c["active"]]
 primary_subject = active_subs[0] if active_subs else "외국인"
 primary_col = subject_col_map[primary_subject]
 
-
 # 텍스트 정제 헬퍼 함수
 def clean_sel_name(val):
     return val.split("(")[-1].replace(")", "").replace("🌱 ", "").replace("🔥 ", "").replace("🚨 ", "").strip()
 
-
 def clean_pure_name(val):
     return val.split("(")[0].replace("🌱 ", "").replace("🔥 ", "").replace("🚨 ", "").strip()
-
 
 # ==========================================
 # 🔍 탭 1: 개별 종목 분석
 # ==========================================
 with tab1:
-    # st.markdown("### 🔍 종목별 상세 맞춤 수급 및 이평선 비교 분석")
+    #st.markdown("### 🔍 종목별 상세 맞춤 수급 및 이평선 비교 분석")
     with st.container():
         col_input1, col_input2 = st.columns([2, 2])
         with col_input1:
@@ -344,16 +334,14 @@ with tab1:
             selected_name = stock_df[stock_df['선택용_이름'] == selected_stock]['종목명'].values[0]
 
         with col_input2:
-            date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()),
-                                         key="date_input_tab1")
+            date_range_1 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab1")
 
     if isinstance(date_range_1, tuple) and len(date_range_1) == 2:
         df_all_data = get_all_investor_data(selected_ticker, date_range_1[0], date_range_1[1])
-
+        
         if not df_all_data.empty:
             fig_custom = draw_custom_multi_chart(df_all_data, selected_name, subject_configs)
-            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1",
-                            config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig_custom, use_container_width=True, key="chart_tab1", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("데이터가 없습니다. 사이드바 설정을 확인해 주세요.")
 
@@ -363,25 +351,23 @@ sprouts, hopes, cleans = classify_stock_groups(primary_col)
 # 🌱 탭 2: 새싹 발굴
 # ==========================================
 with tab2:
-    # st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
-    # st.markdown('<div class="hot-badge">💡 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
-
+    #st.markdown(f"### 🌱 새싹 발굴 종목 리스트 ([{primary_subject}] 기준)")
+    #st.markdown('<div class="hot-badge">💡 생애 최초로 외국인 수급이 유입된 기업들입니다. (🌱 표시는 최근 5일 내 신규 진입 종목)</div>', unsafe_allow_html=True)
+    
     col_s1, col_s2 = st.columns([2, 2])
     with col_s1:
         selected_sprout = st.selectbox("발굴된 새싹 종목 선택:", sprouts if sprouts else ["종목 없음"], key="sprout_sel")
     with col_s2:
-        date_range_2 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()),
-                                     key="date_input_tab2")
+        date_range_2 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab2")
 
     if sprouts and selected_sprout != "종목 없음" and isinstance(date_range_2, tuple) and len(date_range_2) == 2:
         s_ticker = clean_sel_name(selected_sprout)
         s_name = clean_pure_name(selected_sprout)
-
+        
         df_sprout = get_all_investor_data(s_ticker, date_range_2[0], date_range_2[1])
         if not df_sprout.empty:
             fig = draw_custom_multi_chart(df_sprout, s_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout",
-                            config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab2_sprout", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -391,25 +377,23 @@ with tab2:
 # 🚀 탭 3: 희망 종목
 # ==========================================
 with tab3:
-    # st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
-    # st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 증가율이 20% 이상인 종목들입니다. (🔥 표시는 최근 5일 내 신규 진입)</div>', unsafe_allow_html=True)
-
+    #st.markdown(f"### 🚀 희망 종목 리스트 ([{primary_subject}] 기준)")
+    #st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 증가율이 20% 이상인 종목들입니다. (🔥 표시는 최근 5일 내 신규 진입)</div>', unsafe_allow_html=True)
+    
     col_h1, col_h2 = st.columns([2, 2])
     with col_h1:
         selected_hope = st.selectbox("희망 종목 선택:", hopes if hopes else ["종목 없음"], key="hope_sel")
     with col_h2:
-        date_range_3 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()),
-                                     key="date_input_tab3")
+        date_range_3 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab3")
 
     if hopes and selected_hope != "종목 없음" and isinstance(date_range_3, tuple) and len(date_range_3) == 2:
         h_ticker = clean_sel_name(selected_hope)
         h_name = clean_pure_name(selected_hope)
-
+        
         df_hope = get_all_investor_data(h_ticker, date_range_3[0], date_range_3[1])
         if not df_hope.empty:
             fig = draw_custom_multi_chart(df_hope, h_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope",
-                            config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab3_hope", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -419,25 +403,23 @@ with tab3:
 # 🚨 탭 4: 정리 종목
 # ==========================================
 with tab4:
-    # st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
-    # st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. 30% 이상은 리스트에서 제거. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
-
+    #st.markdown(f"### 🚨 정리 대상 종목 리스트 ([{primary_subject}] 기준)")
+    #st.markdown('<div class="hot-badge">💡 전 5일 대비 수급 하락률이 10%를 초과하는 종목들입니다. 30% 이상은 리스트에서 제거. (🚨 표시는 최근 5일 내 급하락 진입)</div>', unsafe_allow_html=True)
+    
     col_c1, col_c2 = st.columns([2, 2])
     with col_c1:
         selected_clean = st.selectbox("정리 종목 선택:", cleans if cleans else ["종목 없음"], key="clean_sel")
     with col_c2:
-        date_range_4 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()),
-                                     key="date_input_tab4")
+        date_range_4 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab4")
 
     if cleans and selected_clean != "종목 없음" and isinstance(date_range_4, tuple) and len(date_range_4) == 2:
         c_ticker = clean_sel_name(selected_clean)
         c_name = clean_pure_name(selected_clean)
-
+        
         df_clean = get_all_investor_data(c_ticker, date_range_4[0], date_range_4[1])
         if not df_clean.empty:
             fig = draw_custom_multi_chart(df_clean, c_name, subject_configs)
-            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean",
-                            config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+            st.plotly_chart(fig, use_container_width=True, key="chart_tab4_clean", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
         else:
             st.warning("해당 기간 내 데이터가 없습니다.")
     else:
@@ -447,27 +429,24 @@ with tab4:
 # ⭐ 탭 5: 나의 새싹 즐겨찾기
 # ==========================================
 with tab5:
-    # st.markdown(f"### ⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
-
+    #st.markdown(f"### ⭐ 나의 관심 새싹 즐겨찾기 수급 추세 레이더")
+    
     col_f1, col_f2 = st.columns([2, 2])
     with col_f1:
-        favorite_stocks = st.multiselect("📌 즐겨찾기 종목 선택:", options=stock_df['선택용_이름'], default=default_favs,
-                                         key="fav_box")
+        favorite_stocks = st.multiselect("📌 즐겨찾기 종목 선택:", options=stock_df['선택용_이름'], default=default_favs, key="fav_box")
     with col_f2:
-        date_range_5 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()),
-                                     key="date_input_tab5")
-
+        date_range_5 = st.date_input("📅 분석 기간을 선택하세요:", value=(datetime.date(2026, 1, 1), datetime.date.today()), key="date_input_tab5")
+    
     if favorite_stocks and isinstance(date_range_5, tuple) and len(date_range_5) == 2:
         local_storage.setItem("my_sprout_favorites", ",".join(favorite_stocks))
-
+        
         for idx, stock_name in enumerate(favorite_stocks):
             ticker = stock_df[stock_df['선택용_이름'] == stock_name]['티커'].values[0]
             name = stock_df[stock_df['선택용_이름'] == stock_name]['종목명'].values[0]
             df_fav = get_all_investor_data(ticker, date_range_5[0], date_range_5[1])
-
+            
             if not df_fav.empty:
                 fig = draw_custom_multi_chart(df_fav, name, subject_configs)
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}",
-                                config={"scrollZoom": True, "displayModeBar": True, "responsive": True})
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_tab5_fav_{ticker}_{idx}", config={"scrollZoom": True, "displayModeBar": False, "responsive": True})
     else:
         st.info("즐겨찾기할 종목을 위에서 선택해 주세요.")
