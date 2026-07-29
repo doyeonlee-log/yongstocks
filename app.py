@@ -14,57 +14,34 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. 🔥 [모바일 줌 완전 정복] 
-# 상위 부모창, 현재 창, 내부 프레임까지 존재하는 모든 '확대 방지 메커니즘'을 강제로 무력화합니다.
-st.components.v1.html(
-    """
-    <script>
-        function forceAllowZoom() {
-            // 1. 유저가 접근 가능한 모든 window 객체 수집 (부모 창, 현재 창 등)
-            const targets = [window, parent, window.top];
-            
-            targets.forEach(tgt => {
-                try {
-                    if (!tgt) return;
-                    
-                    // 2. 존재하는 모든 뷰포트 메타 태그를 찾아 줌 가능 상태로 강제 변경
-                    const metas = tgt.document.querySelectorAll('meta[name="viewport"]');
-                    metas.forEach(meta => {
-                        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes');
-                    });
-                    
-                    // 3. Streamlit 프레임워크가 모바일 터치(두 손가락 핀치)를 가로채지 못하도록 
-                    // 캡처링 단계(true)에서 이벤트를 선점하여 무조건 브라우저 순정 기능으로 연결합니다.
-                    const cancelPrevent = function(e) {
-                        if (e.touches && e.touches.length > 1) {
-                            // Streamlit 내부의 event.preventDefault() 호출을 강제로 차단하고 이벤트를 통과시킵니다.
-                            e.stopPropagation();
-                        }
-                    };
-                    
-                    tgt.document.addEventListener('touchstart', cancelPrevent, { passive: true, capture: true });
-                    tgt.document.addEventListener('touchmove', cancelPrevent, { passive: true, capture: true });
-                    
-                } catch (e) {
-                    // 크로스 도메인 이슈 방지용 예외 처리
-                    console.log("Zoom inject passive block bypass");
-                }
-            });
-        }
+import streamlit as st
+import pandas as pd
+import FinanceDataReader as fdr
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import datetime
+import os
+from streamlit_local_storage import LocalStorage
 
-        # 4. Streamlit 컴포넌트가 완전히 로드된 후 즉시 실행 및 안정화를 위해 0.5초 뒤 한번 더 강제 실행
-        forceAllowZoom();
-        setTimeout(forceAllowZoom, 500);
-    </script>
-    """,
-    height=0,
-    width=0
+# 1. 페이지 기본 설정 및 레이아웃 최적화
+st.set_page_config(
+    page_title="새싹발굴하기 - Pro Dashboard", 
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# [UI/UX 고도화] 탭 선택 디자인 개선 및 갤럭시(안드로이드) 체크박스 텍스트 잘림/숨김 현상 완벽 해결 CSS
+# 💡 [보안 우회형 모바일 줌 해결] 기존 자바스크립트 코드는 삭제하고, 
+# 아래 CSS 내부에 모바일 전용 터치 확대 제어 코드를 직접 심어 관리합니다.
 st.markdown("""
     <style>
-
+    /* ================================================================= */
+    /* 🔥 [핵심 추가] 모바일 브라우저의 터치 드래그 및 핀치 줌을 강제로 활성화 */
+    /* ================================================================= */
+    html, body, .stApp {
+        touch-action: pan-x pan-y !important; /* 브라우저 순정 확대 이동 허용 */
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
     .main { background-color: #f8f9fa; }
     
     /* 탭 전체 영역 간격 */
@@ -94,7 +71,7 @@ st.markdown("""
 
     div.stExpander { border-radius: 8px; border: 1px solid #e0e0e0; background-color: white; }
     
-    /* 갤럭시(안드로이드 크롬) 등 모바일에서 체크박스 텍스트가 잘리거나 안 보이는 현상 완벽 방지 */
+    /* 갤럭시(안드로이드 크롬) 등 모바일에서 사이드바 체크박스 텍스트 잘림/숨김 완벽 방지 */
     section[data-testid="stSidebar"] .stCheckbox p,
     section[data-testid="stSidebar"] .stCheckbox label,
     section[data-testid="stSidebar"] .stCheckbox span {
@@ -102,40 +79,12 @@ st.markdown("""
         font-size: 14px !important;
         opacity: 1 !important;
         visibility: visible !important;
-        word-break: keep-all;
+        display: inline-block !important;
         white-space: normal !important;
+        word-break: break-all !important;
     }
-    
-    .hot-badge {
-        background-color: #fff3cd;
-        border: 1px solid #ffeeba;
-        color: #856404;
-        padding: 10px 15px;
-        border-radius: 6px;
-        font-weight: bold;
-        margin-bottom: 15px;
-    }
-    h1, h2, h3 { font-family: 'Helvetica Neue', sans-serif; letter-spacing: -0.5px; }
-
-    /* [모바일 레이아웃 방어] 항목이 늘어나도 글씨가 겹치지 않고 아래로 밀려나며 공간을 차지하도록 설정 */
-    section[data-testid="stSidebar"] .element-container,
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        display: flex;
-        flex-direction: column;
-        gap: 6px; /* 항목 간 간격을 확실히 띄워줌 */
-    }
-
-    section[data-testid="stSidebar"] .stCheckbox {
-        position: relative;
-        width: 100%;
-        min-height: 32px;
-        margin-bottom: 4px;
-    }
-    
     </style>
 """, unsafe_allow_html=True)
-
-
 
 local_storage = LocalStorage()
 
