@@ -12,21 +12,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Git LFS
+      # 1. Git LFS 설치 및 investor_data.csv를 LFS 추적 대상으로 명시
+      - name: Set up Git LFS and Track File
         run: |
           git lfs install
           git lfs track "data/investor_data.csv"
           git add .gitattributes
 
-      - name: Push to Hugging Face Hub
+      # 2. 허깅페이스로 LFS 객체 및 코드 안전하게 푸시
+      - name: Push to Hugging Face Hub via LFS
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           git config --global user.name "doyeonlee-log"
           git config --global user.email "github-actions@github.com"
           
-          # Git LFS가 적용된 상태에서 허깅페이스로 강제 푸시
+          # LFS 파일을 허깅페이스 원격지로 먼저 안전하게 전송
+          git lfs push --all "https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks.git" main || true
+          
           git add data/investor_data.csv
-          git commit -m "Sync LFS data to Hugging Face [skip ci]" || echo "No changes to commit"
+          git commit -m "Auto-sync LFS stock data to Hugging Face [skip ci]" || echo "No changes to commit"
           
           git push "https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks.git" main:refs/heads/main --force
