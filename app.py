@@ -308,7 +308,7 @@ def clean_pure_name(val):
 # 🔍 탭 1: 개별 종목 분석
 # ==========================================
 with tab1:
-    st.markdown("### 🔍 종목별 상세 맞춤 수급 및 이평선 비교 분석")
+    #st.markdown("### 🔍 종목별 상세 맞춤 수급 및 이평선 비교 분석")
     with st.container():
         col_input1, col_input2 = st.columns([2, 2])
         with col_input1:
