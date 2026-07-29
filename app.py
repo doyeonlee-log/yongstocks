@@ -230,7 +230,7 @@ def draw_custom_multi_chart(df, label_name, configs):
     fig.update_layout(
         template="plotly_white", height=500, hovermode="x unified", 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=f"📈 {label_name} - 주체별 맞춤 수급 및 이평선 비교 분석",
+        title=f"📈 {label_name} ",
         dragmode="pan",          
         uirevision="constant"    
     )
