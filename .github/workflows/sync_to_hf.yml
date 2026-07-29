@@ -2,7 +2,7 @@ name: Sync to Hugging Face Hub
 
 on:
   push:
-    branches: [main] # 메인 브랜치에 데이터나 코드가 업데이트될 때마다 자동 작동!
+    branches: [main]
 
 jobs:
   sync:
@@ -12,10 +12,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Push to Hugging Face Hub
-        uses: huggingface/git-action@v1
-        with:
-          my_token: ${{ secrets.HF_TOKEN }}
-          username: 'doyeonlee-log'
-          space: 'yongstocks'
-          branch: 'main'
-          force: true
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add hf https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks
+          git push hf main:refs/heads/main --force
