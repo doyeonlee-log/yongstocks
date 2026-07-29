@@ -11,24 +11,33 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true # 1. 체크아웃 단계에서 LFS 기본 활성화
 
-      - name: Set up Git LFS and Track File
-        run: |
-          git lfs install
-          git lfs track "data/investor_data.csv"
-          git add .gitattributes
-
-      - name: Push to Hugging Face Hub via LFS
+      - name: Configure Git & HF Remote
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           git config --global user.name "doyeonlee-log"
           git config --global user.email "github-actions@github.com"
           
-          # LFS 객체를 허깅페이스 원격지로 먼저 전송
-          git lfs push --all "https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks.git" main || true
+          # 2. 허깅페이스를 'hf'라는 이름의 원격 저장소로 미리 등록 (LFS가 올바르게 주소를 인식하도록 설정)
+          git remote add hf "https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks"
+
+      - name: Track Files with LFS
+        run: |
+          git lfs install
+          git lfs track "data/investor_data.csv"
+          git add .gitattributes data/investor_data.csv
+
+      - name: Commit and Push to Hugging Face
+        run: |
+          # 3. 변경 사항이 있을 때만 안전하게 커밋하도록 조건문 처리 (에러 방지)
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-sync LFS stock data to Hugging Face [skip ci]"
+          else
+            echo "No changes to commit. Proceeding with push."
+          fi
           
-          git add data/investor_data.csv
-          git commit -m "Auto-sync LFS stock data to Hugging Face [skip ci]" || echo "No changes to commit"
-          
-          git push "https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks.git" main:refs/heads/main --force
+          # 4. 등록한 원격지(hf)를 통해 LFS 객체 전송 및 강제 푸시 실행
+          git lfs push --all hf main
+          git push hf main:refs/heads/main --force
