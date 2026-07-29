@@ -10,15 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Hugging Face 전용 CLI 도구 설치
       - name: Install Hugging Face CLI
         run: |
           pip install hf
 
-      # 2. CLI 도구를 이용해 로그인 없이 토큰으로 직접 파일 업로드
-      - name: Upload Data to Hugging Face Space
+      - name: Upload Entire Repository to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # hf upload <유저명/스페이스명> <로컬파일경로> <스페이스내장소> --repo-type space
-          hf upload doyeonlee-log/yongstocks data/investor_data.csv data/investor_data.csv --token $HF_TOKEN --repo-type space
+          # 현재 디렉토리(.)의 모든 파일과 폴더를 허깅페이스 스페이스에 통째로 동기화
+          hf upload doyeonlee-log/yongstocks . . --token $HF_TOKEN --repo-type space --commit-message "Sync all code and data from GitHub"
