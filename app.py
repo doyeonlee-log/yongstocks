@@ -277,12 +277,12 @@ def classify_stock_groups(subject_col):
         # 2. 🚀 희망 탭 로직
         if prev_5 > 0:
             growth_rate = (recent_5 - prev_5) / prev_5 * 100
-            if growth_rate >= 20:
+            if growth_rate >= 40:
                 prev_growth_rate = (prev_5 - prev_prev_5) / abs(prev_prev_5) * 100 if prev_prev_5 != 0 else 0
-                is_recent_hot = (growth_rate >= 20 and prev_growth_rate < 20)
+                is_recent_hot = (growth_rate >= 40 and prev_growth_rate < 40)
                 prefix = "🔥 " if is_recent_hot else ""
                 hope_list.append(f"{prefix}{stock_name} ({ticker})")
-                
+
         # 3. 🚨 정리 탭 로직
         if prev_5 > 0 and recent_5 < prev_5:
             drop_rate = (prev_5 - recent_5) / prev_5 * 100
