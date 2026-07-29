@@ -248,7 +248,7 @@ def draw_custom_multi_chart(df, label_name, configs):
         template="plotly_white", height=500, hovermode="x unified", 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=f"📈 {label_name} ",
-        dragmode="zoom",          # 모바일 핀치줌/확대 제스처 최적화
+        dragmode="pan",          # 크롭 현상을 없애고 부드러운 스크롤/이동이 되도록 원래의 pan 모드로 복원
         uirevision="constant"    
     )
     return fig
