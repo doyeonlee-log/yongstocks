@@ -68,22 +68,7 @@ st.markdown("""
         margin-bottom: 15px;
     }
     h1, h2, h3 { font-family: 'Helvetica Neue', sans-serif; letter-spacing: -0.5px; }
-
-    /* [모바일 레이아웃 방어] 항목이 늘어나도 글씨가 겹치지 않고 아래로 밀려나며 공간을 차지하도록 설정 */
-    section[data-testid="stSidebar"] .element-container,
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        display: flex;
-        flex-direction: column;
-        gap: 6px; /* 항목 간 간격을 확실히 띄워줌 */
-    }
-
-    section[data-testid="stSidebar"] .stCheckbox {
-        position: relative;
-        width: 100%;
-        min-height: 32px;
-        margin-bottom: 4px;
-    }
-    
+   
     </style>
 """, unsafe_allow_html=True)
 
