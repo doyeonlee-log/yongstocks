@@ -15,8 +15,4 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git config --global user.name "doyeonlee-log"
-          git config --global user.email "lehdus2756@gmail.com"
-          git remote remove hf || true
-          git remote add hf https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks.git
-          git push hf main:refs/heads/main --force
+          git push "https://doyeonlee-log:$HF_TOKEN@huggingface.co/spaces/doyeonlee-log/yongstocks.git" main:refs/heads/main --force
